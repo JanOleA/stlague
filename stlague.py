@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 class District:
     def __init__(self, seats, initial_divisor = 1.4):
@@ -47,6 +48,91 @@ class District:
 
 
 if __name__ == "__main__":
+    states_dict = {}
+    states_distribution = {}
+    states = pd.read_csv("states.csv", delimiter = ";")
+    for state in states.iterrows():
+        name = state[1]["state"]
+        electoral_votes = state[1]["votes"]
+        states_dict[name] = District(electoral_votes)
+
+    #votes = pd.read_csv("1976-2016-president.csv")
+    #votes = votes[votes["year"] == 2016]
+    #votes_column = "candidatevotes"
+
+    votes = pd.read_csv("president_county_candidate.csv")
+    votes_column = "votes"
+    
+    df_states = list(votes.state.unique())
+
+    total_distribution = {}
+    candidate_vote_number = {}
+
+    yticks = []
+
+    fig, ax = plt.subplots()
+    for n, state in enumerate(states_dict):
+        state_df = votes[votes["state"] == state]
+        state_candidates = list(state_df.candidate.unique())
+        for cand in state_candidates:
+            candidate_votes = np.sum(state_df[state_df["candidate"] == cand][votes_column])
+            states_dict[state].add_votes(cand, candidate_votes)
+            if cand in candidate_vote_number:
+                candidate_vote_number[cand] += candidate_votes
+            else:
+                candidate_vote_number[cand] = candidate_votes
+
+        distribution = states_dict[state].calculate()
+        ax.barh(n, distribution["Joe Biden"], height = 0.8, color = "blue")
+        ax.barh(n, distribution["Donald Trump"], left = distribution["Joe Biden"], height = 0.8, color = "red")
+        yticks.append(state)
+        
+        for cand, electoral_votes in distribution.items():
+            if cand in total_distribution:
+                total_distribution[cand] += electoral_votes
+            else:
+                total_distribution[cand] = electoral_votes
+    
+    plt.yticks(np.arange(0, 51), yticks)
+
+    candidates_list = []
+    electoral_votes = []
+    total_votes = []
+    for cand, evs in total_distribution.items():
+        if cand == " Write-ins":
+            continue
+        candidates_list.append(cand)
+        electoral_votes.append(evs)
+        total_votes.append(candidate_vote_number[cand])
+    
+    candidates_list = np.array(candidates_list)
+    electoral_votes = np.array(electoral_votes)
+    total_votes = np.array(total_votes)
+
+    idx = np.argsort(total_votes)[::-1]
+    candidates_list = candidates_list[idx]
+    electoral_votes = electoral_votes[idx]
+    total_votes = total_votes[idx]
+
+    print("Top six candidates:")
+
+    print(f"{'Name':>20s} {'EV':>5s} {'Votes':>10s} {'% of EV':>11s} {'% of votes':>12s} {'ppt diff':>10s}")
+    print("#"*73)
+
+    fig, ax = plt.subplots()
+    i = 0
+    for cand, evs, vote in zip(candidates_list[:6], electoral_votes[:6], total_votes[:6]):
+        evshare = evs/538*100
+        voteshare = vote/np.sum(total_votes)*100
+        print(f"{cand:>20s} {int(evs):>5d} {int(vote):>10d} {evshare:>9.2f} % {voteshare:>10.2f} % {evshare - voteshare:>10.2f}")
+        if evs > 0:
+            ax.barh(0, evs, left = np.sum(electoral_votes[:i]), label = cand, height = 0.2)
+        i += 1
+
+    plt.legend()
+    plt.show()
+
+    """
     # mandatfordeling per fylkenummer, uten utjevningsmandater
     mandatfordeling = {1: 8,
                        2: 16,
@@ -106,13 +192,11 @@ if __name__ == "__main__":
         s += item
     print(s)
     
-    utgjevning = District(169)
+    utgjevning = District(19)
     totalt_antall_stemmer = np.sum(results_2017["Antall stemmer totalt"])
 
     for parti, stemmer in partistemmer.items():
-        if parti not in fordeling:
-            continue
-        if fordeling[parti] == 0:
+        if stemmer/totalt_antall_stemmer < 0.04:
             continue
         utgjevning.add_votes(parti, stemmer)
     
@@ -120,9 +204,10 @@ if __name__ == "__main__":
     
     s = 0
     for parti, resultat in utgjevningsresultater.items():
-        diff = resultat - fordeling[parti]
-        print(parti, diff)
-        s += resultat
-        if diff < 0:
-            print("Overrepresentation, remove", parti)
-    print(s)
+        print(parti, resultat)
+        #diff = resultat - fordeling[parti]
+        #print(parti, diff)
+        #s += resultat
+        #if diff < 0:
+        #    print("Overrepresentation, remove", parti)
+    print(s)"""
