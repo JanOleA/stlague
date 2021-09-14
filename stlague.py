@@ -88,21 +88,38 @@ def main():
         seats_no_leveling[key] = item - 1
     assert s == 169
 
-    results_2021 = pd.read_csv("2021-09-14_partydist.csv", delimiter = ";")
+    results_2021 = pd.read_csv("2021-09-14_partydist-17-09.csv", delimiter = ";")
     party_votes_total = {}
+    party_vote_shares = {}
+    party_names = {}
     distribution = {}
     district_distributions = {}
+
+    blank_votes = results_2021[results_2021["Partikode"] == "BLANKE"][["Fylkenavn", "Antall stemmer totalt"]]
+    num_possible_voters = results_2021[results_2021["Partikode"] == "BLANKE"]["Antall stemmeberettigede"]
+    percent_blanks = blank_votes["Antall stemmer totalt"]/num_possible_voters*100
+    blank_votes["Prosent blanke av stemmeberettigede"] = percent_blanks
+    number_of_blanks = blank_votes["Antall stemmer totalt"].sum(axis = 0)
+    print("\n" + "#"*30)
+    print(f"Blank votes:")
+    print("-"*30)
+    print(blank_votes.sort_values(by = "Antall stemmer totalt", ascending = False))
+    print("Total:", number_of_blanks)
+    print("")
 
     districts = results_2021.Fylkenavn.unique()
     for district_name in districts:
         results_dis = results_2021[results_2021["Fylkenavn"] == district_name]
         district_id = int(results_dis.Fylkenummer.unique())
-        parties = list(results_dis.Partinavn.unique())
+        parties = list(results_dis.Partikode.unique())
 
         electoral_district = District(seats_no_leveling[district_id])
 
         for party in parties:
-            results_party = results_dis[results_dis["Partinavn"] == party]
+            results_party = results_dis[results_dis["Partikode"] == party]
+            party_name = results_party.Partinavn.unique()
+            assert len(party_name) == 1 # check that only one party name belongs to the party code
+            party_names[party] = party_name[0]
             votes = np.sum(results_party["Antall stemmer totalt"])
 
             if party in party_votes_total:
@@ -144,7 +161,8 @@ def main():
             seats = distribution[party]
         else:
             seats = 0
-        party_percent_of_total = party_votes_total[party]/total_votes*100
+        party_percent_of_total = party_votes_total[party]/(total_votes - number_of_blanks)*100
+        party_vote_shares[party] = np.round(party_percent_of_total, 2)
     
         if party_percent_of_total < leveling_seats_limit:
             leveling_seats -= seats
@@ -183,20 +201,34 @@ def main():
             diff = seats - seats_before
         else:
             diff = 0
-        distribution_with_leveling[party] = [seats, diff]
+        distribution_with_leveling[party] = [seats, diff, party_vote_shares[party]]
 
     for party, seats in leveling_distribution.items():
         if not party in distribution:
             seats = leveling_distribution[party]
-            distribution_with_leveling[party] = [seats, seats]
+            distribution_with_leveling[party] = [seats, seats, party_vote_shares[party]]
 
-    distribution_table = pd.DataFrame(distribution_with_leveling).T
-    distribution_table.columns = ["Mandater", "Utjevningsmandater"]
+    display_dict = {} # create a new dict where the party codes are replaced with party names for pretty printing
+    for party, seats in distribution_with_leveling.items():
+        display_dict[party_names[party]] = seats
+
+    distribution_table = pd.DataFrame(display_dict).T
+    distribution_table.columns = ["Mandater", "Utjevningsmandater", "% Stemmer"]
     distribution_table = distribution_table.sort_values("Mandater", axis = 0, ascending = False)
     print(f"Grense for utjevningsmandater = {leveling_seats_limit}%")
     print(distribution_table)
 
-    print(distribution_table.sum(axis = 0))
+    seat_sums = distribution_table.sum(axis = 0)
+    assert seat_sums["Mandater"] == 169
+
+    for district, dist_distribution in district_distributions.items():
+        print("\n" + "#"*50)
+        print(f"Direct seats from {district}")
+        print("-"*50)
+        for party, seats in dist_distribution.items():
+            if seats == 0:
+                continue
+            print(f"{party_names[party]:>35s} {seats:>3d}")
 
 
 if __name__ == "__main__":
