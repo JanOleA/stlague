@@ -244,7 +244,12 @@ def main():
     if args.displaydistricts or args.individuals:
         for district, dist_distribution in district_distributions.items():
             if args.individuals and district.lower() not in individuals_lowered:
-                continue
+                passing = False
+                for individual in individuals_lowered:
+                    if individual in district.lower():
+                        passing = True
+                if not passing:
+                    continue
             print("\n" + "#"*50)
             print(f"Direct seats from {district}")
             print("-"*50)
