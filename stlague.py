@@ -137,13 +137,19 @@ def main():
     parties_competing_votes = {}
 
     total_votes = np.sum(results_2021["Antall stemmer totalt"])
-    for party, seats in distribution.items():
+    for party, votes in party_votes_total.items():
+        if party == "Blanke":
+            continue
+        if party in distribution:
+            seats = distribution[party]
+        else:
+            seats = 0
         party_percent_of_total = party_votes_total[party]/total_votes*100
     
         if party_percent_of_total < leveling_seats_limit:
             leveling_seats -= seats
         else:
-            parties_competing_votes[party] = party_votes_total[party]
+            parties_competing_votes[party] = votes
 
     # initial distribution before removing overrepresented parties
     leveling_district = District(leveling_seats)
@@ -157,7 +163,10 @@ def main():
         parties_over = [] # append parties to the list as we go
 
         for party, level_seats in leveling_distribution.items():
-            district_seats = distribution[party]
+            if party in distribution:
+                district_seats = distribution[party]
+            else:
+                district_seats = 0
             if district_seats >= level_seats: # party is overrepresented (or level)
                 parties_over.append(party)
                 leveling_district.remove_party(party)
@@ -176,11 +185,18 @@ def main():
             diff = 0
         distribution_with_leveling[party] = [seats, diff]
 
+    for party, seats in leveling_distribution.items():
+        if not party in distribution:
+            seats = leveling_distribution[party]
+            distribution_with_leveling[party] = [seats, seats]
+
     distribution_table = pd.DataFrame(distribution_with_leveling).T
-    distribution_table.columns = ["Seats", "Leveling seats"]
-    distribution_table = distribution_table.sort_values("Seats", axis = 0, ascending = False)
-    print(f"Leveling seats limit = {leveling_seats_limit}%")
+    distribution_table.columns = ["Mandater", "Utjevningsmandater"]
+    distribution_table = distribution_table.sort_values("Mandater", axis = 0, ascending = False)
+    print(f"Grense for utjevningsmandater = {leveling_seats_limit}%")
     print(distribution_table)
+
+    print(distribution_table.sum(axis = 0))
 
 
 if __name__ == "__main__":
