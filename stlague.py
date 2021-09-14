@@ -127,7 +127,7 @@ def main():
             else:
                 party_votes_total[party] = votes
 
-            if party == "Blanke":
+            if party == "BLANKE":
                 continue
             electoral_district.add_votes(party, votes)
 
@@ -155,7 +155,7 @@ def main():
 
     total_votes = np.sum(results_2021["Antall stemmer totalt"])
     for party, votes in party_votes_total.items():
-        if party == "Blanke":
+        if party == "BLANKE":
             continue
         if party in distribution:
             seats = distribution[party]
