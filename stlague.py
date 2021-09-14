@@ -1,6 +1,9 @@
+import sys
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
 
 class District:
     def __init__(self, seats, initial_divisor = 1.4):
@@ -27,7 +30,7 @@ class District:
 
     def calculate(self):
         num_parties = len(self._votes)
-        awarded_seats = np.zeros(num_parties)
+        awarded_seats = np.zeros(num_parties, dtype = np.int)
         votes_array = np.array(self._votes)
         divisor_array = np.full(num_parties, self._initial_divisor)
         score_history = []
@@ -46,168 +49,139 @@ class District:
 
         return final_results
 
+    @property
+    def seats(self):
+        return self._seats
+
+    @seats.setter
+    def seats(self, val):
+        self._seats = val
+
+
+def main():
+    # Seat distribution per district id number
+    total_seats = {1: 9,    # Østfold
+                   2: 19,   # Akershus
+                   3: 20,   # Oslo
+                   4: 7,    # Hedmark    
+                   5: 6,    # Oppland
+                   6: 8,    # Buskerud    
+                   7: 7,    # Vestfold
+                   8: 6,    # Telemark
+                   9: 4,    # Aust-Agder
+                   10: 6,   # Vest-Agder
+                   11: 14,  # Rogaland
+                   12: 16,  # Hordaland
+                   14: 4,   # Sogn og Fjordane
+                   15: 8,   # Møre og Romsdal
+                   16: 10,  # Sør-Trøndelag
+                   17: 5,   # Nord-Trøndelag
+                   18: 9,   # Nordland
+                   19: 6,   # Troms Romsa
+                   20: 5}   # Finnmark Finnmárku
+    
+    # Seat distribution without leveling seats (each district has one less)
+    seats_no_leveling = {}
+    s = 0 # check that the total is 169 as well
+    for key, item in total_seats.items():
+        s += item
+        seats_no_leveling[key] = item - 1
+    assert s == 169
+
+    results_2021 = pd.read_csv("2021-09-14_partydist.csv", delimiter = ";")
+    party_votes_total = {}
+    distribution = {}
+    district_distributions = {}
+
+    districts = results_2021.Fylkenavn.unique()
+    for district_name in districts:
+        results_dis = results_2021[results_2021["Fylkenavn"] == district_name]
+        district_id = int(results_dis.Fylkenummer.unique())
+        parties = list(results_dis.Partinavn.unique())
+
+        electoral_district = District(seats_no_leveling[district_id])
+
+        for party in parties:
+            results_party = results_dis[results_dis["Partinavn"] == party]
+            votes = np.sum(results_party["Antall stemmer totalt"])
+
+            if party in party_votes_total:
+                party_votes_total[party] += votes
+            else:
+                party_votes_total[party] = votes
+
+            if party == "Blanke":
+                continue
+            electoral_district.add_votes(party, votes)
+
+        district_distribution = electoral_district.calculate()
+        district_distributions[district_name] = district_distribution
+
+        for party, seats in district_distribution.items():
+            if not seats:
+                continue
+            if party in distribution:
+                distribution[party] += seats
+            else:
+                distribution[party] = seats
+
+    leveling_seats = 169
+    if len(sys.argv) > 1:
+        try:
+            leveling_seats_limit = float(sys.argv[1])
+        except ValueError:
+            leveling_seats_limit = 4
+    else:
+        leveling_seats_limit = 4
+
+    parties_competing_votes = {}
+
+    total_votes = np.sum(results_2021["Antall stemmer totalt"])
+    for party, seats in distribution.items():
+        party_percent_of_total = party_votes_total[party]/total_votes*100
+    
+        if party_percent_of_total < leveling_seats_limit:
+            leveling_seats -= seats
+        else:
+            parties_competing_votes[party] = party_votes_total[party]
+
+    # initial distribution before removing overrepresented parties
+    leveling_district = District(leveling_seats)
+    for party, votes in parties_competing_votes.items():
+        leveling_district.add_votes(party, votes)
+
+    leveling_distribution = leveling_district.calculate()
+
+    parties_over = None
+    while parties_over or parties_over is None:
+        parties_over = [] # append parties to the list as we go
+
+        for party, level_seats in leveling_distribution.items():
+            district_seats = distribution[party]
+            if district_seats >= level_seats: # party is overrepresented (or level)
+                parties_over.append(party)
+                leveling_district.remove_party(party)
+                leveling_district.seats = leveling_district.seats - district_seats # remove this party's allocated seats from the calculation
+
+        leveling_distribution = leveling_district.calculate()
+
+    distribution_with_leveling = {}
+
+    for party, seats in distribution.items():
+        if party in leveling_distribution:
+            seats_before = seats
+            seats = leveling_distribution[party]
+            diff = seats - seats_before
+        else:
+            diff = 0
+        distribution_with_leveling[party] = [seats, diff]
+
+    distribution_table = pd.DataFrame(distribution_with_leveling).T
+    distribution_table.columns = ["Seats", "Leveling seats"]
+    distribution_table = distribution_table.sort_values("Seats", axis = 0, ascending = False)
+    print(f"Leveling seats limit = {leveling_seats_limit}%")
+    print(distribution_table)
+
 
 if __name__ == "__main__":
-    states_dict = {}
-    states_distribution = {}
-    states = pd.read_csv("states.csv", delimiter = ";")
-    for state in states.iterrows():
-        name = state[1]["state"]
-        electoral_votes = state[1]["votes"]
-        states_dict[name] = District(electoral_votes)
-
-    #votes = pd.read_csv("1976-2016-president.csv")
-    #votes = votes[votes["year"] == 2016]
-    #votes_column = "candidatevotes"
-
-    votes = pd.read_csv("president_county_candidate.csv")
-    votes_column = "votes"
-    
-    df_states = list(votes.state.unique())
-
-    total_distribution = {}
-    candidate_vote_number = {}
-
-    yticks = []
-
-    fig, ax = plt.subplots()
-    for n, state in enumerate(states_dict):
-        state_df = votes[votes["state"] == state]
-        state_candidates = list(state_df.candidate.unique())
-        for cand in state_candidates:
-            candidate_votes = np.sum(state_df[state_df["candidate"] == cand][votes_column])
-            states_dict[state].add_votes(cand, candidate_votes)
-            if cand in candidate_vote_number:
-                candidate_vote_number[cand] += candidate_votes
-            else:
-                candidate_vote_number[cand] = candidate_votes
-
-        distribution = states_dict[state].calculate()
-        ax.barh(n, distribution["Joe Biden"], height = 0.8, color = "blue")
-        ax.barh(n, distribution["Donald Trump"], left = distribution["Joe Biden"], height = 0.8, color = "red")
-        yticks.append(state)
-        
-        for cand, electoral_votes in distribution.items():
-            if cand in total_distribution:
-                total_distribution[cand] += electoral_votes
-            else:
-                total_distribution[cand] = electoral_votes
-    
-    plt.yticks(np.arange(0, 51), yticks)
-
-    candidates_list = []
-    electoral_votes = []
-    total_votes = []
-    for cand, evs in total_distribution.items():
-        if cand == " Write-ins":
-            continue
-        candidates_list.append(cand)
-        electoral_votes.append(evs)
-        total_votes.append(candidate_vote_number[cand])
-    
-    candidates_list = np.array(candidates_list)
-    electoral_votes = np.array(electoral_votes)
-    total_votes = np.array(total_votes)
-
-    idx = np.argsort(total_votes)[::-1]
-    candidates_list = candidates_list[idx]
-    electoral_votes = electoral_votes[idx]
-    total_votes = total_votes[idx]
-
-    print("Top six candidates:")
-
-    print(f"{'Name':>20s} {'EV':>5s} {'Votes':>10s} {'% of EV':>11s} {'% of votes':>12s} {'ppt diff':>10s}")
-    print("#"*73)
-
-    fig, ax = plt.subplots()
-    i = 0
-    for cand, evs, vote in zip(candidates_list[:6], electoral_votes[:6], total_votes[:6]):
-        evshare = evs/538*100
-        voteshare = vote/np.sum(total_votes)*100
-        print(f"{cand:>20s} {int(evs):>5d} {int(vote):>10d} {evshare:>9.2f} % {voteshare:>10.2f} % {evshare - voteshare:>10.2f}")
-        if evs > 0:
-            ax.barh(0, evs, left = np.sum(electoral_votes[:i]), label = cand, height = 0.2)
-        i += 1
-
-    plt.legend()
-    plt.show()
-
-    """
-    # mandatfordeling per fylkenummer, uten utjevningsmandater
-    mandatfordeling = {1: 8,
-                       2: 16,
-                       3: 18,
-                       4: 6,
-                       5: 6,
-                       6: 8,
-                       7: 6,
-                       8: 5,
-                       9: 3,
-                       10: 5,
-                       11: 13,
-                       12: 15,
-                       14: 3,
-                       15: 8,
-                       16: 9,
-                       17: 4,
-                       18: 8,
-                       19: 5,
-                       20: 4}
-
-    fordeling = {}
-    partistemmer = {}
-    results_2017 = pd.read_csv("2017.csv", delimiter = ";")
-
-    fylker = list(results_2017.Fylkenavn.unique())
-    for fylke in fylker:
-        results_fylke = results_2017[results_2017["Fylkenavn"] == fylke]
-        fylkenummer = int(results_fylke.Fylkenummer.unique())
-        partier = list(results_fylke.Partinavn.unique())
-
-        valgdistrikt = District(mandatfordeling[fylkenummer])
-        
-        for parti in partier:
-            results_parti = results_fylke[results_fylke["Partinavn"] == parti]
-            stemmer = np.sum(results_parti["Antall stemmer totalt"])
-            if parti in partistemmer:
-                partistemmer[parti] += stemmer
-            else:
-                partistemmer[parti] = stemmer
-            if parti == "Blanke":
-                continue
-            valgdistrikt.add_votes(parti, stemmer)
-
-        distriktfordeling = valgdistrikt.calculate()
-
-        for parti, seter in distriktfordeling.items():
-            if seter == 0:
-                continue
-            if parti in fordeling:
-                fordeling[parti] += seter
-            else:
-                fordeling[parti] = seter
-    
-    s = 0
-    for key, item in fordeling.items():
-        s += item
-    print(s)
-    
-    utgjevning = District(19)
-    totalt_antall_stemmer = np.sum(results_2017["Antall stemmer totalt"])
-
-    for parti, stemmer in partistemmer.items():
-        if stemmer/totalt_antall_stemmer < 0.04:
-            continue
-        utgjevning.add_votes(parti, stemmer)
-    
-    utgjevningsresultater = utgjevning.calculate()
-    
-    s = 0
-    for parti, resultat in utgjevningsresultater.items():
-        print(parti, resultat)
-        #diff = resultat - fordeling[parti]
-        #print(parti, diff)
-        #s += resultat
-        #if diff < 0:
-        #    print("Overrepresentation, remove", parti)
-    print(s)"""
+    main()
