@@ -1,5 +1,6 @@
 import argparse
 import sys
+import time
 
 import numpy as np
 import pandas as pd
@@ -129,7 +130,8 @@ def main():
         print("Total:", number_of_blanks)
         print("")
 
-    print("Calculating main distribution...")
+    start = time.perf_counter()
+    print("Calculating main distribution... [running]  ", end = "\r")
     districts = results_2021.Fylkenavn.unique()
     for district_name in districts:
         results_dis = results_2021[results_2021["Fylkenavn"] == district_name]
@@ -164,8 +166,10 @@ def main():
                 distribution[party] += seats
             else:
                 distribution[party] = seats
+    print(f"Calculating main distribution... [Completed in: {time.perf_counter() - start:>7.5f}s]  ")
 
-    print("Calculating leveling seats...")
+    start = time.perf_counter()
+    print("Calculating leveling seats... [running]  ", end = "\r")
     leveling_seats = 169
     leveling_seats_limit = args.levelinglimit
 
@@ -225,6 +229,9 @@ def main():
         if not party in distribution:
             seats = leveling_distribution[party]
             distribution_with_leveling[party] = [seats, seats, party_vote_shares[party]]
+
+    print(f"Calculating leveling seats... [Completed in: {time.perf_counter() - start:>7.5f}s]  ")
+    print("")
 
     display_dict = {} # create a new dict where the party codes are replaced with party names for pretty printing
     for party, seats in distribution_with_leveling.items():
