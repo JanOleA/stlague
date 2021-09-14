@@ -1,3 +1,4 @@
+import argparse
 import sys
 
 import numpy as np
@@ -59,6 +60,26 @@ class District:
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--displaydistricts",
+                        help = "Display direct seats from all districts",
+                        action = "store_true")
+    parser.add_argument("-b", "--blanks",
+                        help = "Display statistics of blank votes",
+                        action = "store_true")
+    parser.add_argument("-l", "--levelinglimit",
+                        help = "The vote share required to be awarded leveling seats",
+                        default = 4,
+                        metavar = "VOTESHARE",
+                        type = float)
+    parser.add_argument("-i", "--individuals",
+                        help = "Display direct seats from individual districts provided as arguments",
+                        nargs = "+",
+                        default = [],
+                        metavar = "DISTRICTS",
+                        type = str)
+    args = parser.parse_args()
+
     # Seat distribution per district id number
     total_seats = {1: 9,    # Østfold
                    2: 19,   # Akershus
@@ -88,7 +109,7 @@ def main():
         seats_no_leveling[key] = item - 1
     assert s == 169
 
-    results_2021 = pd.read_csv("2021-09-14_partydist-20-08.csv", delimiter = ";")
+    results_2021 = pd.read_csv("2021-09-14_partydist-22-52.csv", delimiter = ";")
     party_votes_total = {}
     party_vote_shares = {}
     party_names = {}
@@ -98,15 +119,17 @@ def main():
     blank_votes = results_2021[results_2021["Partikode"] == "BLANKE"][["Fylkenavn", "Antall stemmer totalt"]]
     num_possible_voters = results_2021[results_2021["Partikode"] == "BLANKE"]["Antall stemmeberettigede"]
     percent_blanks = blank_votes["Antall stemmer totalt"]/num_possible_voters*100
-    blank_votes["Prosent blanke av stemmeberettigede"] = percent_blanks
+    blank_votes["% av stemmeberettigede"] = percent_blanks
     number_of_blanks = blank_votes["Antall stemmer totalt"].sum(axis = 0)
-    print("\n" + "#"*30)
-    print(f"Blank votes:")
-    print("-"*30)
-    print(blank_votes.sort_values(by = "Antall stemmer totalt", ascending = False))
-    print("Total:", number_of_blanks)
-    print("")
+    if args.blanks:
+        print("\n" + "#"*30)
+        print(f"Blanke stemmer:")
+        print("-"*30)
+        print(blank_votes.sort_values(by = "Antall stemmer totalt", ascending = False))
+        print("Total:", number_of_blanks)
+        print("")
 
+    print("Calculating main distribution...")
     districts = results_2021.Fylkenavn.unique()
     for district_name in districts:
         results_dis = results_2021[results_2021["Fylkenavn"] == district_name]
@@ -142,6 +165,7 @@ def main():
             else:
                 distribution[party] = seats
 
+    print("Calculating leveling seats...")
     leveling_seats = 169
     if len(sys.argv) > 1:
         try:
@@ -221,14 +245,19 @@ def main():
     seat_sums = distribution_table.sum(axis = 0)
     assert seat_sums["Mandater"] == 169
 
-    for district, dist_distribution in district_distributions.items():
-        print("\n" + "#"*50)
-        print(f"Direct seats from {district}")
-        print("-"*50)
-        for party, seats in dist_distribution.items():
-            if seats == 0:
+    individuals_lowered = [x.lower() for x in args.individuals]
+
+    if args.displaydistricts or args.individuals:
+        for district, dist_distribution in district_distributions.items():
+            if args.individuals and district.lower() not in individuals_lowered:
                 continue
-            print(f"{party_names[party]:>35s} {seats:>3d}")
+            print("\n" + "#"*50)
+            print(f"Direct seats from {district}")
+            print("-"*50)
+            for party, seats in dist_distribution.items():
+                if seats == 0:
+                    continue
+                print(f"{party_names[party]:>35s} {seats:>3d}")
 
 
 if __name__ == "__main__":
