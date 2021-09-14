@@ -167,13 +167,7 @@ def main():
 
     print("Calculating leveling seats...")
     leveling_seats = 169
-    if len(sys.argv) > 1:
-        try:
-            leveling_seats_limit = float(sys.argv[1])
-        except ValueError:
-            leveling_seats_limit = 4
-    else:
-        leveling_seats_limit = 4
+    leveling_seats_limit = args.levelinglimit
 
     parties_competing_votes = {}
 
