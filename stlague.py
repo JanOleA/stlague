@@ -79,6 +79,9 @@ def main():
                         default = [],
                         metavar = "DISTRICTS",
                         type = str)
+    parser.add_argument("-a", "--analyze",
+                        help = "Run various analyses on the election results",
+                        action = "store_true")
     args = parser.parse_args()
 
     # Seat distribution per district id number
@@ -110,7 +113,7 @@ def main():
         seats_no_leveling[key] = item - 1
     assert s == 169
 
-    results_2021 = pd.read_csv("2021-09-14_partydist-22-52.csv", delimiter = ";")
+    results_2021 = pd.read_csv("2021-09-15_partydist-12-25.csv", delimiter = ";")
     party_votes_total = {}
     party_vote_shares = {}
     party_names = {}
@@ -223,12 +226,12 @@ def main():
             diff = seats - seats_before
         else:
             diff = 0
-        distribution_with_leveling[party] = [seats, diff, party_vote_shares[party]]
+        distribution_with_leveling[party] = [seats, diff, party_vote_shares[party], party_votes_total[party]]
 
     for party, seats in leveling_distribution.items():
         if not party in distribution:
             seats = leveling_distribution[party]
-            distribution_with_leveling[party] = [seats, seats, party_vote_shares[party]]
+            distribution_with_leveling[party] = [seats, seats, party_vote_shares[party], party_votes_total[party]]
 
     print(f"Calculating leveling seats... [Completed in: {time.perf_counter() - start:>7.5f}s]  ")
     print("")
@@ -238,7 +241,7 @@ def main():
         display_dict[party_names[party]] = seats
 
     distribution_table = pd.DataFrame(display_dict).T
-    distribution_table.columns = ["Mandater", "Utjevningsmandater", "% Stemmer"]
+    distribution_table.columns = ["Mandater", "Utjevningsmandater", "% Stemmer", "Antall stemmer"]
     distribution_table = distribution_table.sort_values("Mandater", axis = 0, ascending = False)
     print(f"Grense for utjevningsmandater = {leveling_seats_limit}%")
     print(distribution_table)
@@ -264,6 +267,23 @@ def main():
                 if seats == 0:
                     continue
                 print(f"{party_names[party]:>35s} {seats:>3d}")
+
+    if args.analyze:
+        smalldists_results_2021 = pd.read_csv("2021-09-15_partydist_smalldistricts.csv", delimiter = ";")
+        # Benford's law analysis
+        leading_digits = []
+        for line in smalldists_results_2021.iterrows():
+            value = line[1]["Antall stemmer totalt"]
+            if value > 0:
+                first_digit = str(value)[0]
+                leading_digits.append(int(first_digit))
+
+        plt.hist(leading_digits, bins = range(1,11))
+        plt.xticks([1, 2, 3, 4, 5, 6, 7, 8, 9])
+        plt.xlabel("Ledende siffer ")
+        plt.ylabel("Antall tilfeller")
+        plt.title("Ledende siffer for antall stemmer ved alle valgkretser i Norge")
+        plt.show()
 
 
 if __name__ == "__main__":
