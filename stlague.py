@@ -31,6 +31,8 @@ class District:
         self._names.pop(idx)
 
     def calculate(self):
+        if len(self._votes) == 0:
+            return {}
         num_parties = len(self._votes)
         awarded_seats = np.zeros(num_parties, dtype = np.int)
         votes_array = np.array(self._votes)
@@ -226,13 +228,13 @@ def main():
             diff = seats - seats_before
         else:
             diff = 0
-        votes_for_leveling = np.ceil((0.04*(total_votes - number_of_blanks) - party_votes_total[party])/0.96) # votes required for the party to gain leveling seats
+        votes_for_leveling = np.ceil(((leveling_seats_limit/100)*(total_votes - number_of_blanks) - party_votes_total[party])/(1 - leveling_seats_limit/100)) # votes required for the party to gain leveling seats
         distribution_with_leveling[party] = [seats, diff, party_vote_shares[party], party_votes_total[party], votes_for_leveling]
 
     for party, seats in leveling_distribution.items():
         if not party in distribution:
             seats = leveling_distribution[party]
-            votes_for_leveling = np.ceil((0.04*(total_votes - number_of_blanks) - party_votes_total[party])/0.96) # votes required for the party to gain leveling seats
+            votes_for_leveling = np.ceil(((leveling_seats_limit/100)*(total_votes - number_of_blanks) - party_votes_total[party])/(1 - leveling_seats_limit/100)) # votes required for the party to gain leveling seats
             distribution_with_leveling[party] = [seats, seats, party_vote_shares[party], party_votes_total[party], votes_for_leveling]
 
     print(f"Calculating leveling seats... [Completed in: {time.perf_counter() - start:>7.5f}s]  ")
@@ -244,13 +246,13 @@ def main():
         display_dict[party_names[party]] = seats
 
     distribution_table = pd.DataFrame(display_dict).T
-    distribution_table.columns = ["Mandater", "Utjevningsmandater", "% Stemmer", "Antall stemmer", "Stemmer til 4%"]
+    distribution_table.columns = ["Mandater", "Utjevningsmandater", "% Stemmer", "Antall stemmer", f"Stemmer til {leveling_seats_limit}%"]
     distribution_table = distribution_table.sort_values("Mandater", axis = 0, ascending = False)
     print(f"Grense for utjevningsmandater = {leveling_seats_limit}%")
     print(distribution_table)
 
     seat_sums = distribution_table.sum(axis = 0)
-    assert seat_sums["Mandater"] == 169
+    assert seat_sums["Mandater"] == 169, f"Sum of seats should be 169, not {seat_sums['Mandater']}"
 
     individuals_lowered = [x.lower() for x in args.individuals]
 
