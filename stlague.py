@@ -113,7 +113,7 @@ def main():
         seats_no_leveling[key] = item - 1
     assert s == 169
 
-    results_2021 = pd.read_csv("2021-09-15_partydist-12-25.csv", delimiter = ";")
+    results_2021 = pd.read_csv("2021-09-16_partydist.csv", delimiter = ";")
     party_votes_total = {}
     party_vote_shares = {}
     party_names = {}
@@ -226,22 +226,25 @@ def main():
             diff = seats - seats_before
         else:
             diff = 0
-        distribution_with_leveling[party] = [seats, diff, party_vote_shares[party], party_votes_total[party]]
+        votes_for_leveling = np.ceil((0.04*(total_votes - number_of_blanks) - party_votes_total[party])/0.96) # votes required for the party to gain leveling seats
+        distribution_with_leveling[party] = [seats, diff, party_vote_shares[party], party_votes_total[party], votes_for_leveling]
 
     for party, seats in leveling_distribution.items():
         if not party in distribution:
             seats = leveling_distribution[party]
-            distribution_with_leveling[party] = [seats, seats, party_vote_shares[party], party_votes_total[party]]
+            votes_for_leveling = np.ceil((0.04*(total_votes - number_of_blanks) - party_votes_total[party])/0.96) # votes required for the party to gain leveling seats
+            distribution_with_leveling[party] = [seats, seats, party_vote_shares[party], party_votes_total[party], votes_for_leveling]
 
     print(f"Calculating leveling seats... [Completed in: {time.perf_counter() - start:>7.5f}s]  ")
     print("")
+    print(f"Antall stemmer totalt: {total_votes-number_of_blanks}")
 
     display_dict = {} # create a new dict where the party codes are replaced with party names for pretty printing
     for party, seats in distribution_with_leveling.items():
         display_dict[party_names[party]] = seats
 
     distribution_table = pd.DataFrame(display_dict).T
-    distribution_table.columns = ["Mandater", "Utjevningsmandater", "% Stemmer", "Antall stemmer"]
+    distribution_table.columns = ["Mandater", "Utjevningsmandater", "% Stemmer", "Antall stemmer", "Stemmer til 4%"]
     distribution_table = distribution_table.sort_values("Mandater", axis = 0, ascending = False)
     print(f"Grense for utjevningsmandater = {leveling_seats_limit}%")
     print(distribution_table)
