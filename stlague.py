@@ -91,6 +91,10 @@ def main():
                         help = "Set the initial divisor (default 1.4)",
                         default = 1.4,
                         type = float)
+    parser.add_argument("-t", "--title",
+                        help = "Title for the plots (default is no title)",
+                        default = "",
+                        type = str)
     args = parser.parse_args()
 
     # Seat distribution per district id number
@@ -123,6 +127,7 @@ def main():
     assert s == 169
 
     results_2021 = pd.read_csv("2021-09-17_partydist.csv", delimiter = ";")
+    all_parties = results_2021.Partikode.unique()
     party_votes_total = {}
     party_vote_shares = {}
     party_names = {}
@@ -141,6 +146,8 @@ def main():
         print(blank_votes.sort_values(by = "Antall stemmer totalt", ascending = False))
         print("Total:", number_of_blanks)
         print("")
+
+    total_votes = np.sum(results_2021["Antall stemmer totalt"])
 
     start = time.perf_counter()
     print("Calculating main distribution... [running]  ", end = "\r")
@@ -167,7 +174,7 @@ def main():
             if party == "BLANKE":
                 continue
             electoral_district.add_votes(party, votes)
-
+            
         district_distribution = electoral_district.calculate()
         district_distributions[district_name] = district_distribution
 
@@ -187,7 +194,6 @@ def main():
 
     parties_competing_votes = {}
 
-    total_votes = np.sum(results_2021["Antall stemmer totalt"])
     for party, votes in party_votes_total.items():
         if party == "BLANKE":
             continue
@@ -245,6 +251,59 @@ def main():
             distribution_with_leveling[party] = [seats, seats, party_vote_shares[party], party_votes_total[party], votes_for_leveling]
 
     print(f"Calculating leveling seats... [Completed in: {time.perf_counter() - start:>7.5f}s]  ")
+    print("Calculating districts for leveling seats... [running]  ", end = "\r")
+    start = time.perf_counter()
+    leveling_table = []
+    for district_name in districts:
+        results_dis = results_2021[results_2021["Fylkenavn"] == district_name]
+        district_votes_total = results_dis["Antall stemmer totalt"].sum()
+        district_votes_total -= results_dis[results_dis["Partikode"] == "BLANKE"]["Antall stemmer totalt"].sum()
+        district_id = int(results_dis.Fylkenummer.unique())
+        district_divisor = district_votes_total/seats_no_leveling[district_id]
+        for party, level_seats in leveling_distribution.items():
+            party_district_votes = results_dis[results_dis["Partikode"] == party]
+            party_district_votes = np.sum(party_district_votes["Antall stemmer totalt"])
+            if party in district_distributions[district_name]:
+                direct_seats_in_district = district_distributions[district_name][party]
+            else:
+                direct_seats_in_district = 0
+            divisor = direct_seats_in_district*2 + 1
+            rest_quotient = (party_district_votes/divisor)/district_divisor
+            leveling_table.append([rest_quotient, district_name, party])
+    leveling_table = pd.DataFrame(leveling_table)
+    leveling_table.columns = ["Restkvotient", "Fylke", "Partikode"]
+    leveling_table = leveling_table.sort_values(by = "Restkvotient", ascending = False)
+
+    parties_awarded = {}
+    leveling_awards = {}
+
+    print("")
+    for line in leveling_table.iterrows():
+        district = line[1]["Fylke"]
+        party = line[1]["Partikode"]
+        if party in distribution:
+            seats_to_award = leveling_distribution[party] - distribution[party]
+        else:
+            seats_to_award = leveling_distribution[party]
+        #print(party, seats_to_award)
+        if district in leveling_awards:
+            continue
+        if party in parties_awarded:
+            if parties_awarded[party] >= seats_to_award:
+                continue
+        else:
+            parties_awarded[party] = 0
+        leveling_awards[district] = party
+        parties_awarded[party] += 1
+
+    for district, party in leveling_awards.items():
+        if party in district_distributions[district]:
+            district_distributions[district][party] += 1
+        else:
+            district_distributions[district][party] = 1
+
+    print(f"Calculating districts for leveling seats... [Completed in: {time.perf_counter() - start:>7.5f}s]  ")
+
     print("")
     print(f"Antall stemmer totalt: {total_votes-number_of_blanks}")
 
@@ -273,7 +332,7 @@ def main():
                 if not passing:
                     continue
             print("\n" + "#"*50)
-            print(f"Direct seats from {district}")
+            print(f"Mandater fra {district}")
             print("-"*50)
             for party, seats in dist_distribution.items():
                 if seats == 0:
@@ -299,14 +358,16 @@ def main():
 
     if args.plot:
         parties_left_to_right = {"RØDT": "#800000",
-                                 "SV":   "#ff00d0",
+                                 "SV":   "#ff7dfb",
                                  "A":    "#ff0000",
-                                 "SP":   "#5cd42c",
+                                 "SP":   "#93c77d",
                                  "MDG":  "#129600",
                                  "PP":   "#386782",
-                                 "KRF":  "#deff08",
                                  "PF":   "#828282",
-                                 "V":    "#00d169",
+                                 "PS":   "#b3321c",
+                                 "KRF":  "#d9ff00",
+                                 "INP":  "#ffb300",
+                                 "V":    "#00ffe1",
                                  "H":    "#0084ff",
                                  "FRP":  "#0038b0",
                                  "DEMN": "#7211b0",}
@@ -316,16 +377,16 @@ def main():
                                  "A":    48,
                                  "SP":   28,
                                  "MDG":  3,
-                                 "PP":   0,
                                  "KRF":  3,
                                  "PF":   1,
                                  "V":    8,
                                  "H":    36,
-                                 "FRP":  21,
-                                 "DEMN": 0,}
+                                 "FRP":  21}
                                  
         plt.figure(figsize = (12,3.2))
-        plt.title(f"Sperregrense: {args.levelinglimit}% | Første delingstall: {args.startdivisor}")
+        if args.title == "":
+            args.title = f"Sperregrense: {args.levelinglimit}% | Første delingstall: {args.startdivisor}"
+        plt.title(args.title)
         plt.axis("off")
         plt.tight_layout()
         plt.ylim((-6.5, 1))
@@ -359,7 +420,7 @@ def main():
         plt.legend()
 
         plt.figure()
-        plt.title(f"Sperregrense: {args.levelinglimit}% | Første delingstall: {args.startdivisor}")
+        plt.title(args.title)
         plt.axis("off")
         plt.tight_layout()
 
@@ -369,7 +430,11 @@ def main():
                 continue
             partyname = party_names[party]
             seats = distribution_with_leveling[party][0]
-            diff = seats - parties_actual_distri[party]
+            if party in parties_actual_distri:
+                actual = parties_actual_distri[party]
+            else:
+                actual = 0
+            diff = seats - actual
             if diff > 0:
                 marker = "↑"
             elif diff < 0:
@@ -383,6 +448,101 @@ def main():
 
         plt.xlim(-0.2, 0.7)
 
+        locations = {"Østfold":            [0.8, -0.8],
+                     "Akershus":           [0.85, 1.1],
+                     "Oslo":               [0, 0],
+                     "Hedmark":            [0.6, 2.3],
+                     "Oppland":            [-1.8, 1.7],
+                     "Buskerud":           [-1.75, 0.6],
+                     "Vestfold":           [-0.7, -0.8],
+                     "Telemark":           [-2.9, -0.4],
+                     "Aust-Agder":         [-2, -1.6],
+                     "Vest-Agder":         [-3.2, -1.8],
+                     "Rogaland":           [-4.3, -1.5],
+                     "Hordaland":          [-4.6, 0],
+                     "Sogn og Fjordane":   [-4.91, 1.43],
+                     "Møre og Romsdal":    [-3.58, 2.6],
+                     "Sør-Trøndelag":      [-1.3, 3],
+                     "Nord-Trøndelag":     [0, 4],
+                     "Nordland":           [1, 5.5],
+                     "Troms Romsa":        [3, 6.7],
+                     "Finnmark Finnmárku": [6, 7],}
+
+        plt.figure(figsize = (14,9))
+        plt.title(args.title)
+        plt.tight_layout()
+        row_sizes = np.array([1, 6, 12, 24])
+        row_sizes_cum = np.cumsum(row_sizes)
+
+        parties_in_legend = []
+
+        for district_name, location in locations.items():
+            leveling_awarded = False
+            results_dis = results_2021[results_2021["Fylkenavn"] == district_name] 
+            district_id = int(results_dis.Fylkenummer.unique())
+            district_seats = total_seats[district_id]
+
+            district_distribution = district_distributions[district_name]
+
+            if district_name == "Oslo" or district_name == "Akershus":
+                plt.text(location[0] + 0.45, location[1] + 0.25, district_name, fontfamily = "Cascadia Code")
+            elif district_name == "Hordaland" or district_name == "Rogaland":
+                plt.text(location[0] -1.5, location[1] + 0.25, district_name, fontfamily = "Cascadia Code")
+            elif district_name == "Sør-Trøndelag" or district_name == "Nordland":
+                plt.text(location[0] + 0.5, location[1] + 0.25, district_name, fontfamily = "Cascadia Code")
+            elif district_name == "Sogn og Fjordane":
+                plt.text(location[0] -1.6, location[1] + 0.25, district_name, fontfamily = "Cascadia Code")
+            elif district_name == "Møre og Romsdal":
+                plt.text(location[0] -1.7, location[1] + 0.35, district_name, fontfamily = "Cascadia Code")
+            elif district_name == "Vest-Agder":
+                plt.text(location[0] + 0.1, location[1] - 0.35, district_name, fontfamily = "Cascadia Code")
+            elif district_name == "Østfold":
+                plt.text(location[0] + 0.4, location[1] + 0.35, district_name, fontfamily = "Cascadia Code")
+            elif district_name == "Vestfold":
+                plt.text(location[0] + 0.05, location[1] - 0.45, district_name, fontfamily = "Cascadia Code")
+            elif district_name == "Aust-Agder":
+                plt.text(location[0] - 0.4, location[1] + 0.35, district_name, fontfamily = "Cascadia Code")
+            else:
+                plt.text(location[0] + 0.2, location[1] + 0.2, district_name, fontfamily = "Cascadia Code")
+
+            seats_plotted = 0
+            prev_row = 0
+            position = 0
+            for party, seats in district_distribution.items():
+                for seat in range(seats):
+                    row = np.argmax(row_sizes_cum > seats_plotted)
+                    if row != prev_row:
+                        position = 0
+                        prev_row = row
+
+                    if row % 2 == 0:
+                        marker = "h"
+                    else:
+                        marker = "h"
+
+                    rowsize = row_sizes[row]
+                    angle_diff = 2*np.pi/(rowsize)
+
+                    radius = row*0.18
+                    if party in parties_in_legend:
+                        label = None
+                    else:
+                        label = party_names[party]
+                        parties_in_legend.append(party)
+                    x = np.cos(position*angle_diff)*radius + location[0]
+                    y = np.sin(position*angle_diff)*radius + location[1]
+                    if leveling_awards[district_name] == party and not leveling_awarded:
+                        plt.plot(x, y, marker = marker, markersize = 12, color = "black")
+                        plt.plot(x, y, marker = marker, markersize = 10, color = "gold")
+                        leveling_awarded = True
+                    plt.plot(x, y, marker = marker, markersize = 7.5, color = "black")
+                    plt.plot(x, y, marker = marker, markersize = 7, color = parties_left_to_right[party], label = label)
+
+                    position += 1
+                    seats_plotted += 1            
+        plt.axis("equal")
+        plt.axis("off")
+        plt.legend()
         plt.show()
 
 
