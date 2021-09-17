@@ -84,6 +84,13 @@ def main():
     parser.add_argument("-a", "--analyze",
                         help = "Run various analyses on the election results",
                         action = "store_true")
+    parser.add_argument("-p", "--plot",
+                        help = "Display a plot of the parliament",
+                        action = "store_true")
+    parser.add_argument("-s", "--startdivisor",
+                        help = "Set the initial divisor (default 1.4)",
+                        default = 1.4,
+                        type = float)
     args = parser.parse_args()
 
     # Seat distribution per district id number
@@ -115,7 +122,7 @@ def main():
         seats_no_leveling[key] = item - 1
     assert s == 169
 
-    results_2021 = pd.read_csv("2021-09-16_partydist.csv", delimiter = ";")
+    results_2021 = pd.read_csv("2021-09-17_partydist.csv", delimiter = ";")
     party_votes_total = {}
     party_vote_shares = {}
     party_names = {}
@@ -143,7 +150,7 @@ def main():
         district_id = int(results_dis.Fylkenummer.unique())
         parties = list(results_dis.Partikode.unique())
 
-        electoral_district = District(seats_no_leveling[district_id])
+        electoral_district = District(seats_no_leveling[district_id], initial_divisor = args.startdivisor)
 
         for party in parties:
             results_party = results_dis[results_dis["Partikode"] == party]
@@ -248,7 +255,7 @@ def main():
     distribution_table = pd.DataFrame(display_dict).T
     distribution_table.columns = ["Mandater", "Utjevningsmandater", "% Stemmer", "Antall stemmer", f"Stemmer til {leveling_seats_limit}%"]
     distribution_table = distribution_table.sort_values("Mandater", axis = 0, ascending = False)
-    print(f"Grense for utjevningsmandater = {leveling_seats_limit}%")
+    print(f"Grense for utjevningsmandater = {leveling_seats_limit}%  |  Første delingstall: {args.startdivisor}")
     print(distribution_table)
 
     seat_sums = distribution_table.sum(axis = 0)
@@ -288,6 +295,94 @@ def main():
         plt.xlabel("Ledende siffer ")
         plt.ylabel("Antall tilfeller")
         plt.title("Ledende siffer for antall stemmer ved alle valgkretser i Norge")
+        plt.show()
+
+    if args.plot:
+        parties_left_to_right = {"RØDT": "#800000",
+                                 "SV":   "#ff00d0",
+                                 "A":    "#ff0000",
+                                 "SP":   "#5cd42c",
+                                 "MDG":  "#129600",
+                                 "PP":   "#386782",
+                                 "KRF":  "#deff08",
+                                 "PF":   "#828282",
+                                 "V":    "#00d169",
+                                 "H":    "#0084ff",
+                                 "FRP":  "#0038b0",
+                                 "DEMN": "#7211b0",}
+
+        parties_actual_distri = {"RØDT": 8,
+                                 "SV":   13,
+                                 "A":    48,
+                                 "SP":   28,
+                                 "MDG":  3,
+                                 "PP":   0,
+                                 "KRF":  3,
+                                 "PF":   1,
+                                 "V":    8,
+                                 "H":    36,
+                                 "FRP":  21,
+                                 "DEMN": 0,}
+                                 
+        plt.figure(figsize = (12,3.2))
+        plt.title(f"Sperregrense: {args.levelinglimit}% | Første delingstall: {args.startdivisor}")
+        plt.axis("off")
+        plt.tight_layout()
+        plt.ylim((-6.5, 1))
+        plt.xlim((-2, 32))
+        i = 0
+        while i < 169:
+            for party, color in parties_left_to_right.items():
+                if not party in distribution_with_leveling:
+                    continue
+                seats = distribution_with_leveling[party][0]
+                for seat in range(seats):
+                    if i < 84:
+                        col = i//6
+                        row = i%6
+                    elif i == 84:
+                        col = 13.8
+                        row = 2.5
+                    else:
+                        col = (i-1)//6 + 0.6
+                        row = (i-1)%6
+
+                    if seat == 0:
+                        label = party
+                    else:
+                        label = None
+
+                    plt.plot([col], [-row], marker = "s", color = "#000000", markersize = 11)
+                    plt.plot([col], [-row], marker = "s", color = color, markersize = 10, label = label)
+                    i += 1
+
+        plt.legend()
+
+        plt.figure()
+        plt.title(f"Sperregrense: {args.levelinglimit}% | Første delingstall: {args.startdivisor}")
+        plt.axis("off")
+        plt.tight_layout()
+
+        row = 0
+        for party, color in parties_left_to_right.items():
+            if not party in distribution_with_leveling:
+                continue
+            partyname = party_names[party]
+            seats = distribution_with_leveling[party][0]
+            diff = seats - parties_actual_distri[party]
+            if diff > 0:
+                marker = "↑"
+            elif diff < 0:
+                marker = "↓"
+            else:
+                marker = "→"
+            plt.plot([0], [-row], marker = "s", color = "#000000", markersize = 11)
+            plt.plot([0], [-row], marker = "s", color = color, markersize = 10)
+            plt.text(0, -row - 0.1, f"{partyname:>33s}, {seats:>3d}  {marker} {abs(diff)}", fontfamily = "Cascadia Mono")
+            row += 1
+
+        plt.xlim(-0.2, 0.7)
+
         plt.show()
 
 
