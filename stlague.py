@@ -174,7 +174,18 @@ def main():
             if party == "BLANKE":
                 continue
             electoral_district.add_votes(party, votes)
-            
+        
+        """
+        # this block stops parties with less than the leveling limit from gaining any seats at all (even direct district seats)
+        for party in parties:
+            if party == "BLANKE":
+                continue
+            party_votes_total_this = results_2021[results_2021["Partikode"] == party]
+            party_votes_total_this = party_votes_total_this.sum()
+            if party_votes_total_this["Antall stemmer totalt"]/(total_votes - number_of_blanks)*100 < args.levelinglimit:
+                electoral_district.remove_party(party)
+        """
+
         district_distribution = electoral_district.calculate()
         district_distributions[district_name] = district_distribution
 
@@ -491,7 +502,7 @@ def main():
             elif district_name == "Sør-Trøndelag" or district_name == "Nordland":
                 plt.text(location[0] + 0.5, location[1] + 0.25, district_name, fontfamily = "Cascadia Code")
             elif district_name == "Sogn og Fjordane":
-                plt.text(location[0] -1.6, location[1] + 0.25, district_name, fontfamily = "Cascadia Code")
+                plt.text(location[0] -1.6, location[1] + 0.35, district_name, fontfamily = "Cascadia Code")
             elif district_name == "Møre og Romsdal":
                 plt.text(location[0] -1.7, location[1] + 0.35, district_name, fontfamily = "Cascadia Code")
             elif district_name == "Vest-Agder":
@@ -523,7 +534,7 @@ def main():
                     rowsize = row_sizes[row]
                     angle_diff = 2*np.pi/(rowsize)
 
-                    radius = row*0.18
+                    radius = row*0.19
                     if party in parties_in_legend:
                         label = None
                     else:
