@@ -51,7 +51,7 @@ def main():
                         type = str)
     parser.add_argument("-f", "--folder",
                         help = "Folder to save plots in",
-                        default = "",
+                        default = "./figs",
                         type = str)
     args = parser.parse_args()
 
