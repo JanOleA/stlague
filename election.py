@@ -1,75 +1,11 @@
 import argparse
-import sys
 import time
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-
-class District:
-    def __init__(self, seats, initial_divisor = 1.4, method = "stlague"):
-        self._seats = seats
-        self._initial_divisor = initial_divisor
-        self._votes = []
-        self._names = []
-
-        if method.lower() == "stlague":
-            self.calculate = self.stlague
-        if method.lower() == "fptp":
-            self.calculate = self.fptp
-
-    def add_votes(self, name, result):
-        if name in self._names:
-            print("Party already added, can't be added again. Use `edit_votes()`")
-            return
-        self._votes.append(result)
-        self._names.append(name)
-
-    def edit_votes(self, name, result):
-        idx = self._names.index(name)
-        self._votes[idx] = result
-
-    def remove_party(self, name):
-        idx = self._names.index(name)
-        self._votes.pop(idx)
-        self._names.pop(idx)
-
-    def stlague(self):
-        if len(self._votes) == 0:
-            return {}
-        num_parties = len(self._votes)
-        awarded_seats = np.zeros(num_parties, dtype = np.int)
-        votes_array = np.array(self._votes)
-        divisor_array = np.full(num_parties, self._initial_divisor)
-        score_history = []
-
-        while np.sum(awarded_seats) < self._seats:
-            scores = votes_array/divisor_array
-            score_history.append(scores)
-            next_seat = np.argmax(scores)
-            awarded_seats[next_seat] += 1
-            divisor_array[next_seat] = awarded_seats[next_seat]*2 + 1
-
-        final_results = {}
-
-        for name, seats in zip(self._names, awarded_seats):
-            final_results[name] = seats
-
-        return final_results
-
-    def fptp(self):
-        winner_ind = np.argmax(self._votes)
-        final_results = {self._names[winner_ind]: self._seats}
-        return final_results
-
-    @property
-    def seats(self):
-        return self._seats
-
-    @seats.setter
-    def seats(self, val):
-        self._seats = val
+from district import District
 
 
 def main():
@@ -91,7 +27,7 @@ def main():
                         default = [],
                         metavar = "DISTRICTS",
                         type = str)
-    parser.add_argument("-a", "--analyze",
+    parser.add_argument("-r", "--runanalyze",
                         help = "Run various analyses on the election results",
                         action = "store_true")
     parser.add_argument("-p", "--plot",
@@ -101,32 +37,105 @@ def main():
                         help = "Set the initial divisor (default 1.4)",
                         default = 1.4,
                         type = float)
+    parser.add_argument("-a", "--areamultiplier",
+                        help = "Area multiplier for distribution of seats to districts (default 1.8)",
+                        default = 1.8,
+                        type = float)
     parser.add_argument("-t", "--title",
                         help = "Title for the plots (default is no title)",
                         default = "",
                         type = str)
     args = parser.parse_args()
 
+    populations = {1: 299447,   # Østfold
+                   2: 675240,   # Akershus
+                   3: 693494,   # Oslo
+                   4: 197920,   # Hedmark    
+                   5: 173465,   # Oppland
+                   6: 266478,   # Buskerud    
+                   7: 246041,   # Vestfold
+                   8: 173355,   # Telemark
+                   9: 118273,   # Aust-Agder
+                   10: 188958,  # Vest-Agder
+                   11: 479892,  # Rogaland
+                   12: 528127,  # Hordaland
+                   14: 108404,  # Sogn og Fjordane
+                   15: 265238,  # Møre og Romsdal
+                   16: 334514,  # Sør-Trøndelag
+                   17: 134188,  # Nord-Trøndelag
+                   18: 241235,  # Nordland
+                   19: 167839,  # Troms Romsa
+                   20: 75472}   # Finnmark Finnmárku
+    
+    dist_areas = {1: 4004,   # Østfold
+                  2: 5669,   # Akershus
+                  3: 454,    # Oslo
+                  4: 27398,  # Hedmark    
+                  5: 24675,  # Oppland
+                  6: 14920,  # Buskerud    
+                  7: 2168,   # Vestfold
+                  8: 15298,  # Telemark
+                  9: 9155,   # Aust-Agder
+                  10: 7278,  # Vest-Agder
+                  11: 9377,  # Rogaland
+                  12: 15438, # Hordaland
+                  14: 18433, # Sogn og Fjordane
+                  15: 14356, # Møre og Romsdal
+                  16: 20257, # Sør-Trøndelag
+                  17: 21944, # Nord-Trøndelag
+                  18: 38155, # Nordland
+                  19: 26198, # Troms Romsa
+                  20: 48631} # Finnmark Finnmárku
+
+    seat_distribution = District(169, initial_divisor = 1, method = "stlague")
+    for district_id, population in populations.items():
+        area = dist_areas[district_id]
+
+        score = area*args.areamultiplier + population
+        seat_distribution.add_votes(district_id, score)
+
     # Seat distribution per district id number
-    total_seats = {1: 9,    # Østfold
-                   2: 19,   # Akershus
-                   3: 20,   # Oslo
-                   4: 7,    # Hedmark    
-                   5: 6,    # Oppland
-                   6: 8,    # Buskerud    
-                   7: 7,    # Vestfold
-                   8: 6,    # Telemark
-                   9: 4,    # Aust-Agder
-                   10: 6,   # Vest-Agder
-                   11: 14,  # Rogaland
-                   12: 16,  # Hordaland
-                   14: 4,   # Sogn og Fjordane
-                   15: 8,   # Møre og Romsdal
-                   16: 10,  # Sør-Trøndelag
-                   17: 5,   # Nord-Trøndelag
-                   18: 9,   # Nordland
-                   19: 6,   # Troms Romsa
-                   20: 5}   # Finnmark Finnmárku
+    total_seats = seat_distribution.calculate()
+
+    total_seats_real = {1: 9,    # Østfold
+                        2: 19,   # Akershus
+                        3: 20,   # Oslo
+                        4: 7,    # Hedmark    
+                        5: 6,    # Oppland
+                        6: 8,    # Buskerud    
+                        7: 7,    # Vestfold
+                        8: 6,    # Telemark
+                        9: 4,    # Aust-Agder
+                        10: 6,   # Vest-Agder
+                        11: 14,  # Rogaland
+                        12: 16,  # Hordaland
+                        14: 4,   # Sogn og Fjordane
+                        15: 8,   # Møre og Romsdal
+                        16: 10,  # Sør-Trøndelag
+                        17: 5,   # Nord-Trøndelag
+                        18: 9,   # Nordland
+                        19: 6,   # Troms Romsa
+                        20: 5}   # Finnmark Finnmárku
+
+    district_names = {1:  "Østfold",
+                      2:  "Akershus",
+                      3:  "Oslo",
+                      4:  "Hedmark", 
+                      5:  "Oppland",
+                      6:  "Buskerud",  
+                      7:  "Vestfold",
+                      8:  "Telemark",
+                      9:  "Aust-Agder",
+                      10: "Vest-Agder",
+                      11: "Rogaland",
+                      12: "Hordaland",
+                      14: "Sogn og Fjordane",
+                      15: "Møre og Romsdal",
+                      16: "Sør-Trøndelag",
+                      17: "Nord-Trøndelag",
+                      18: "Nordland",
+                      19: "Troms Romsa",
+                      20: "Finnmark Finnmárku"}
     
     # Seat distribution without leveling seats (each district has one less)
     seats_no_leveling = {}
@@ -137,12 +146,12 @@ def main():
     assert s == 169
 
     results_2021 = pd.read_csv("2021-09-17_partydist.csv", delimiter = ";")
-    all_parties = results_2021.Partikode.unique()
     party_votes_total = {}
     party_vote_shares = {}
     party_names = {}
     distribution = {}
     district_distributions = {}
+    votes_per_seat = {}
 
     blank_votes = results_2021[results_2021["Partikode"] == "BLANKE"][["Fylkenavn", "Antall stemmer totalt"]]
     num_possible_voters = results_2021[results_2021["Partikode"] == "BLANKE"]["Antall stemmeberettigede"]
@@ -166,8 +175,10 @@ def main():
         results_dis = results_2021[results_2021["Fylkenavn"] == district_name]
         district_id = int(results_dis.Fylkenummer.unique())
         parties = list(results_dis.Partikode.unique())
+        total_votes_dis = np.sum(results_dis["Antall stemmer totalt"])
+        votes_per_seat[district_id] = [district_name, np.round(total_votes_dis/total_seats[district_id], 1)]
 
-        electoral_district = District(seats_no_leveling[district_id], initial_divisor = args.startdivisor, method = "fptp")
+        electoral_district = District(seats_no_leveling[district_id], initial_divisor = args.startdivisor)
 
         for party in parties:
             results_party = results_dis[results_dis["Partikode"] == party]
@@ -328,6 +339,12 @@ def main():
     print("")
     print(f"Antall stemmer totalt: {total_votes-number_of_blanks}")
 
+    print("")
+    votes_per_seat = pd.DataFrame(votes_per_seat).T
+    votes_per_seat.columns = ["Valgdistrikt", "Antall stemmer per mandat"]
+    print(votes_per_seat)
+    print("")
+
     display_dict = {} # create a new dict where the party codes are replaced with party names for pretty printing
     for party, seats in distribution_with_leveling.items():
         display_dict[party_names[party]] = seats
@@ -360,7 +377,7 @@ def main():
                     continue
                 print(f"{party_names[party]:>35s} {seats:>3d}")
 
-    if args.analyze:
+    if args.runanalyze:
         smalldists_results_2021 = pd.read_csv("2021-09-15_partydist_smalldistricts.csv", delimiter = ";")
         # Benford's law analysis
         leading_digits = []
@@ -448,9 +465,14 @@ def main():
         row = 0
         for party, color in parties_left_to_right.items():
             if not party in distribution_with_leveling:
-                continue
+                if party in parties_actual_distri:
+                    seats = 0
+                else:
+                    continue
+            else:
+                seats = distribution_with_leveling[party][0]
             partyname = party_names[party]
-            seats = distribution_with_leveling[party][0]
+            
             if party in parties_actual_distri:
                 actual = parties_actual_distri[party]
             else:
@@ -515,6 +537,8 @@ def main():
                 plt.text(location[0] -1.6, location[1] + 0.35, district_name, fontfamily = "Cascadia Code")
             elif district_name == "Møre og Romsdal":
                 plt.text(location[0] -1.7, location[1] + 0.35, district_name, fontfamily = "Cascadia Code")
+            elif district_name == "Buskerud":
+                plt.text(location[0] + 0.2, location[1] - 0.35, district_name, fontfamily = "Cascadia Code")
             elif district_name == "Vest-Agder":
                 plt.text(location[0] + 0.1, location[1] - 0.35, district_name, fontfamily = "Cascadia Code")
             elif district_name == "Østfold":
@@ -562,8 +586,27 @@ def main():
         plt.axis("equal")
         plt.axis("off")
         plt.legend()
-        plt.show()
 
+        plt.figure()
+        plt.title(args.title)
+        plt.axis("equal")
+        plt.axis("off")
+        for key, item in total_seats_real.items():
+            district_name = district_names[key]
+            diff = total_seats[key] - item
+            if diff > 0:
+                marker = "↑"
+            elif diff < 0:
+                marker = "↓"
+            else:
+                marker = "→"
+            plt.plot([0], [-row], marker = "s", color = "#000000", markersize = 11)
+            plt.plot([0], [-row], marker = "s", markersize = 10)
+            plt.text(0, -row - 0.1, f"{district_name:>33s}, {total_seats[key]:>3d}  {marker} {abs(diff)}", fontfamily = "Cascadia Mono")
+            row += 1
+
+        plt.xlim(-1, 20)
+        plt.show()
 
 if __name__ == "__main__":
     main()
