@@ -70,6 +70,7 @@ class District:
 
         while np.sum(awarded_seats) < self._seats:
             scores = votes_array/divisor_array
+            scores = np.nan_to_num(scores)
             next_seat = np.argmax(scores)
             awarded_seats[next_seat] += 1
             awarded_seats_this = awarded_seats[next_seat]

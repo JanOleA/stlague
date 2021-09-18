@@ -1,9 +1,10 @@
 import argparse
+import os
 import time
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 from district import District
 
@@ -31,7 +32,10 @@ def main():
                         help = "Run various analyses on the election results",
                         action = "store_true")
     parser.add_argument("-p", "--plot",
-                        help = "Display a plot of the parliament",
+                        help = "Create the plots",
+                        action = "store_true")
+    parser.add_argument("-n", "--noshow",
+                        help = "Suppress the plots being displayed (only save)",
                         action = "store_true")
     parser.add_argument("-s", "--startdivisor",
                         help = "Set the initial divisor (default 1.4)",
@@ -43,6 +47,10 @@ def main():
                         type = float)
     parser.add_argument("-t", "--title",
                         help = "Title for the plots (default is no title)",
+                        default = "",
+                        type = str)
+    parser.add_argument("-f", "--folder",
+                        help = "Folder to save plots in",
                         default = "",
                         type = str)
     args = parser.parse_args()
@@ -152,6 +160,7 @@ def main():
     distribution = {}
     district_distributions = {}
     votes_per_seat = {}
+    all_parties = results_2021.Partikode.unique()
 
     blank_votes = results_2021[results_2021["Partikode"] == "BLANKE"][["Fylkenavn", "Antall stemmer totalt"]]
     num_possible_voters = results_2021[results_2021["Partikode"] == "BLANKE"]["Antall stemmeberettigede"]
@@ -395,6 +404,8 @@ def main():
         plt.show()
 
     if args.plot:
+        if not os.path.isdir(args.folder):
+            os.makedirs(args.folder)
         parties_left_to_right = {"RØDT": "#800000",
                                  "SV":   "#ff7dfb",
                                  "A":    "#ff0000",
@@ -409,6 +420,9 @@ def main():
                                  "H":    "#0084ff",
                                  "FRP":  "#0038b0",
                                  "DEMN": "#7211b0",}
+        for party in all_parties:
+            if party not in parties_left_to_right:
+                parties_left_to_right[party] = "#424242"
 
         parties_actual_distri = {"RØDT": 8,
                                  "SV":   13,
@@ -456,6 +470,7 @@ def main():
                     i += 1
 
         plt.legend()
+        plt.savefig(os.path.join(args.folder, "tinget.png"))
 
         plt.figure()
         plt.title(args.title)
@@ -490,6 +505,7 @@ def main():
             row += 1
 
         plt.xlim(-0.2, 0.7)
+        plt.savefig(os.path.join(args.folder, "seter.png"))
 
         locations = {"Østfold":            [0.8, -0.8],
                      "Akershus":           [0.85, 1.1],
@@ -528,7 +544,7 @@ def main():
             district_distribution = district_distributions[district_name]
 
             if district_name == "Oslo" or district_name == "Akershus":
-                plt.text(location[0] + 0.45, location[1] + 0.25, district_name, fontfamily = "Cascadia Code")
+                plt.text(location[0] + 0.6, location[1] + 0.25, district_name, fontfamily = "Cascadia Code")
             elif district_name == "Hordaland" or district_name == "Rogaland":
                 plt.text(location[0] -1.5, location[1] + 0.25, district_name, fontfamily = "Cascadia Code")
             elif district_name == "Sør-Trøndelag" or district_name == "Nordland":
@@ -586,6 +602,7 @@ def main():
         plt.axis("equal")
         plt.axis("off")
         plt.legend()
+        plt.savefig(os.path.join(args.folder, "kart.png"))
 
         plt.figure()
         plt.title(args.title)
@@ -606,7 +623,7 @@ def main():
             row += 1
 
         plt.xlim(-1, 20)
-        plt.show()
+        if not args.noshow: plt.show()
 
 if __name__ == "__main__":
     main()
