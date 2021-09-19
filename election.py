@@ -10,7 +10,7 @@ from district import District
 
 
 class Norway:
-    def __init__(self, args, filename = "2021-09-17_partydist.csv", leveling_seats = True):
+    def __init__(self, args, filename = "2021-09-17_partydist.csv", num_leveling_seats = 1):
         self._active_message = False
         self.args = args
         self.results = pd.read_csv(filename, delimiter = ";")
@@ -140,7 +140,7 @@ class Norway:
         self.locations = locations
         self.parties_left_to_right = parties_left_to_right
         self.parties_actual_distri = parties_actual_distri
-        self.allow_leveling_seats = leveling_seats
+        self.num_leveling_seats = num_leveling_seats
         self.add_votes_dict = {}
         self.transfer_votes_dict = {}
 
@@ -171,7 +171,7 @@ class Norway:
         s = 0 # check that the total is 169 as well
         for key, item in self.total_seats.items():
             s += item
-            self.seats_without_leveling[key] = item - int(self.allow_leveling_seats)
+            self.seats_without_leveling[key] = item - self.num_leveling_seats
         assert s == 169 # check that the total is 169 as well
 
     def _calculate_direct_seats(self, method = "stlague"):
@@ -653,15 +653,16 @@ class Norway:
         plt.title(self.args.title)
         plt.tight_layout()
 
-        plt.ylim(-7, 1)
+        plt.ylim(-8, 1)
         plt.xlim(-1, 170)
         
         blocks = {"Jonas' drøm": ("A", "SP", "SV"),
                   "Veldigrød+littgrønn": ("A", "SV", "RØDT", "MDG"),
                   "'Hele venstresiden'": ("A", "SP", "SV", "RØDT", "MDG"),
                   "Ernas drøm": ("H", "FRP", "V", "KRF"),
+                  "De blågrønne": ("H", "SP", "FRP", "V", "KRF"),
                   "Sentrum-Høyre": ("H", "V", "KRF"),
-                  "Hæ?": ("H", "SP", "V", "KRF"),
+                  "Sentrum-Sentrum-Høyre": ("H", "SP", "V", "KRF"),
                   "Pls no": ("H", "SP", "FRP")}
 
         legend_parties = []
@@ -697,13 +698,14 @@ class Norway:
                              color = color,
                              edgecolor = "black", alpha = 0.05)
                     left += seats
-
-        plt.legend()
+        plt.axis("off")
+        plt.legend(loc = "upper right")
+        if save: plt.savefig(os.path.join(self.args.folder, "blokker.png"))
        
 
 class NewCountiesNorway(Norway):
-    def __init__(self, args, filename = "2021-09-17_partydist.csv", leveling_seats = True):
-        super().__init__(args, filename = filename, leveling_seats = leveling_seats)
+    def __init__(self, args, filename = "2021-09-17_partydist.csv", num_leveling_seats = 1):
+        super().__init__(args, filename = filename, num_leveling_seats = num_leveling_seats)
 
         new_counties = {"Vestland": [12, 14],
                         "Agder": [9, 10],
@@ -817,7 +819,7 @@ class NewCountiesNorway(Norway):
         if save: plt.savefig(os.path.join(self.args.folder, "kart.png"))
 
 
-def main():
+def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--displaydistricts",
                         help = "Display direct seats from all districts",
@@ -862,8 +864,13 @@ def main():
                         default = "./figs",
                         type = str)
     args = parser.parse_args()
+    return args
 
-    norway = Norway(args)
+
+def main():
+    args = parse_args()
+
+    norway = Norway(args, num_leveling_seats = 1)
     norway.calculate()
     norway.show_results()
 
