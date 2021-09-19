@@ -863,7 +863,7 @@ def main():
                         type = str)
     args = parser.parse_args()
 
-    norway = NewCountiesNorway(args, leveling_seats = False)
+    norway = Norway(args)
     norway.calculate()
     norway.show_results()
 
