@@ -157,15 +157,22 @@ class Norway:
         self.transfer_votes_dict[from_party] = to_party
 
     def _calculate_seat_distribution(self):
-        seat_distribution = District(169, initial_divisor = 1)
+        if self.args.usadist:
+            seat_distribution = District(169 - 2*len(self.populations.items()),
+                                         method = "hunthill", initial_seats = 1)
+        else:
+            seat_distribution = District(169, initial_divisor = 1)
         for district_name, population in self.populations.items():
             area = self.dist_areas[district_name]
     
             score = area*self.args.areamultiplier + population
             seat_distribution.add_votes(district_name, score)
     
-        # Seat distribution per district id number
+        # Seat distribution per district name
         self.total_seats = seat_distribution.calculate()
+
+        for district_name, seats in self.total_seats.items():
+            self.total_seats[district_name] = seats + 2
 
         self.seats_without_leveling = {}
         s = 0 # check that the total is 169 as well
@@ -222,8 +229,8 @@ class Norway:
                     continue
                 electoral_district.add_votes(party, votes)
 
-            if False:
-                # this block stops parties with less than the leveling limit from gaining any seats at all (even direct district seats)
+            if self.args.hardlimit:
+                # stop parties with less than the leveling limit from gaining any seats at all (even direct district seats)
                 for party in parties:
                     if party == "BLANKE":
                         continue
@@ -487,6 +494,7 @@ class Norway:
         print("")
         print(self.votes_per_seat)
 
+        print("")
         print(f"Grense for utjevningsmandater = {self.args.levelinglimit}%  |  Første delingstall: {self.args.startdivisor}")
         print(self.distribution_table)
 
@@ -821,9 +829,6 @@ class NewCountiesNorway(Norway):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--displaydistricts",
-                        help = "Display direct seats from all districts",
-                        action = "store_true")
     parser.add_argument("-b", "--blanks",
                         help = "Display statistics of blank votes",
                         action = "store_true")
@@ -832,12 +837,43 @@ def parse_args():
                         default = 4,
                         metavar = "VOTESHARE",
                         type = float)
+    parser.add_argument("-s", "--startdivisor",
+                        help = "Set the initial divisor when using the Sainte-Laguë method (default 1.4)",
+                        default = 1.4,
+                        type = float)
+    parser.add_argument("-a", "--areamultiplier",
+                        help = "Area multiplier for distribution of seats to districts (default 1.8)",
+                        default = 1.8,
+                        type = float)
+    parser.add_argument("-c", "--counties",
+                        help = "Use the modern (new in 2020) counties of Norway to calculate the distribution of seats and results",
+                        action = "store_true")
+    parser.add_argument("-o", "--onedistrict",
+                        help = "Treat the whole country as a single electoral district",
+                        action = "store_true")
+    parser.add_argument("-x", "--hardlimit",
+                        help = "Treat the leveling limit as a hard limit (parties with less than the limit are excluded from gaining any seats)",
+                        action = "store_true")
+    parser.add_argument("-z", "--noleveling",
+                        help = "Disable leveling seats",
+                        action = "store_true")
+    parser.add_argument("-u", "--usadist",
+                        help = "Distribute seats to the districts similar to the way used for states in the US",
+                        action = "store_true")
+    parser.add_argument("-m", "--method",
+                        help = "Method to use when calculating results for each district",
+                        choices = ["stlague", "fptp", "hunthill"],
+                        default = "stlague",
+                        type = str)
     parser.add_argument("-i", "--individuals",
                         help = "Display direct seats from individual districts provided as arguments",
                         nargs = "+",
                         default = [],
                         metavar = "DISTRICTS",
                         type = str)
+    parser.add_argument("-d", "--displaydistricts",
+                        help = "Display direct seats from all districts",
+                        action = "store_true")
     parser.add_argument("-r", "--runanalyze",
                         help = "Run various analyses on the election results",
                         action = "store_true")
@@ -847,14 +883,6 @@ def parse_args():
     parser.add_argument("-n", "--noshow",
                         help = "Suppress the plots being displayed (only save)",
                         action = "store_true")
-    parser.add_argument("-s", "--startdivisor",
-                        help = "Set the initial divisor (default 1.4)",
-                        default = 1.4,
-                        type = float)
-    parser.add_argument("-a", "--areamultiplier",
-                        help = "Area multiplier for distribution of seats to districts (default 1.8)",
-                        default = 1.8,
-                        type = float)
     parser.add_argument("-t", "--title",
                         help = "Title for the plots (default is no title)",
                         default = "",
@@ -870,8 +898,18 @@ def parse_args():
 def main():
     args = parse_args()
 
-    norway = Norway(args, num_leveling_seats = 1)
-    norway.calculate()
+    if args.noleveling:
+        num_leveling_seats = 0
+
+    if args.onedistrict:
+        norway = Norway(args, num_leveling_seats = 169) # can't disable leveling seats for single district,
+                                                        # since all seats are equivalent to leveling seats
+                                                        # in this case
+    elif args.counties:
+        norway = NewCountiesNorway(args, num_leveling_seats = num_leveling_seats)
+    else:
+        norway = Norway(args, num_leveling_seats = num_leveling_seats)
+    norway.calculate(dist_method = args.method)
     norway.show_results()
 
     if args.displaydistricts or args.individuals:
