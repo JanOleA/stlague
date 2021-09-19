@@ -162,6 +162,7 @@ class Norway:
                                          method = "hunthill", initial_seats = 1)
         else:
             seat_distribution = District(169, initial_divisor = 1)
+
         for district_name, population in self.populations.items():
             area = self.dist_areas[district_name]
     
@@ -171,8 +172,9 @@ class Norway:
         # Seat distribution per district name
         self.total_seats = seat_distribution.calculate()
 
-        for district_name, seats in self.total_seats.items():
-            self.total_seats[district_name] = seats + 2
+        if self.args.usadist:
+            for district_name, seats in self.total_seats.items():
+                self.total_seats[district_name] = seats + 2
 
         self.seats_without_leveling = {}
         s = 0 # check that the total is 169 as well
