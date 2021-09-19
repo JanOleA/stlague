@@ -18,7 +18,8 @@ class District:
 
     def add_votes(self, name, result):
         if name in self._names:
-            print("Party already added, can't be added again. Use `edit_votes()`")
+            idx = self._names.index(name)
+            self._votes[idx] += result
             return
         self._votes.append(result)
         self._names.append(name)

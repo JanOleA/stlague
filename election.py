@@ -9,68 +9,8 @@ import pandas as pd
 from district import District
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--displaydistricts",
-                        help = "Display direct seats from all districts",
-                        action = "store_true")
-    parser.add_argument("-b", "--blanks",
-                        help = "Display statistics of blank votes",
-                        action = "store_true")
-    parser.add_argument("-l", "--levelinglimit",
-                        help = "The vote share required to be awarded leveling seats",
-                        default = 4,
-                        metavar = "VOTESHARE",
-                        type = float)
-    parser.add_argument("-i", "--individuals",
-                        help = "Display direct seats from individual districts provided as arguments",
-                        nargs = "+",
-                        default = [],
-                        metavar = "DISTRICTS",
-                        type = str)
-    parser.add_argument("-r", "--runanalyze",
-                        help = "Run various analyses on the election results",
-                        action = "store_true")
-    parser.add_argument("-p", "--plot",
-                        help = "Create the plots",
-                        action = "store_true")
-    parser.add_argument("-n", "--noshow",
-                        help = "Suppress the plots being displayed (only save)",
-                        action = "store_true")
-    parser.add_argument("-s", "--startdivisor",
-                        help = "Set the initial divisor (default 1.4)",
-                        default = 1.4,
-                        type = float)
-    parser.add_argument("-a", "--areamultiplier",
-                        help = "Area multiplier for distribution of seats to districts (default 1.8)",
-                        default = 1.8,
-                        type = float)
-    parser.add_argument("-t", "--title",
-                        help = "Title for the plots (default is no title)",
-                        default = "",
-                        type = str)
-    parser.add_argument("-f", "--folder",
-                        help = "Folder to save plots in",
-                        default = "./figs",
-                        type = str)
-    args = parser.parse_args()
-
-    norway = NewCountiesNorway(args)
-    norway.calculate()
-    norway.show_results()
-
-    if args.displaydistricts or args.individuals:
-        norway.show_individual_districts()
-
-    if args.runanalyze:
-        norway.analyze()
-
-    if args.plot:
-        norway.plot_results()
-
-
 class Norway:
-    def __init__(self, args, filename = "2021-09-17_partydist.csv"):
+    def __init__(self, args, filename = "2021-09-17_partydist.csv", leveling_seats = True):
         self._active_message = False
         self.args = args
         self.results = pd.read_csv(filename, delimiter = ";")
@@ -200,6 +140,21 @@ class Norway:
         self.locations = locations
         self.parties_left_to_right = parties_left_to_right
         self.parties_actual_distri = parties_actual_distri
+        self.allow_leveling_seats = leveling_seats
+        self.add_votes_dict = {}
+        self.transfer_votes_dict = {}
+
+    def add_votes(self, district, party, votes):
+        if district in self.add_votes_dict:
+            parties_dict = self.add_votes_dict[district]
+            parties_dict[party] = votes
+        else:
+            parties_dict = {party: votes}
+
+        self.add_votes_dict[district] = parties_dict
+
+    def transfer_votes(self, from_party, to_party):
+        self.transfer_votes_dict[from_party] = to_party
 
     def _calculate_seat_distribution(self):
         seat_distribution = District(169, initial_divisor = 1)
@@ -216,16 +171,17 @@ class Norway:
         s = 0 # check that the total is 169 as well
         for key, item in self.total_seats.items():
             s += item
-            self.seats_without_leveling[key] = item - 1
+            self.seats_without_leveling[key] = item - int(self.allow_leveling_seats)
         assert s == 169 # check that the total is 169 as well
 
-    def _calculate_direct_seats(self):
+    def _calculate_direct_seats(self, method = "stlague"):
         results = self.results
         total_seats = self.total_seats
         seats_without_leveling = self.seats_without_leveling
 
         party_votes_total = {}
         party_names = {}
+        party_ids = {}
         distribution = {}
         district_distributions = {}
         votes_per_seat = {}
@@ -239,14 +195,23 @@ class Norway:
                                              np.round(total_votes_dis/total_seats[district_name], 1)]
 
             electoral_district = District(seats_without_leveling[district_name],
-                                          initial_divisor = self.args.startdivisor)
+                                          initial_divisor = self.args.startdivisor,
+                                          method = method)
 
             for party in parties:
                 results_party = results_dis[results_dis["Partikode"] == party]
                 party_name = results_party.Partinavn.unique()
                 assert len(party_name) == 1 # check that only one party name belongs to the party code
                 party_names[party] = party_name[0]
+                party_ids[party_name[0]] = party
                 votes = np.sum(results_party["Antall stemmer totalt"])
+                if district_name in self.add_votes_dict:
+                    if party in self.add_votes_dict[district_name]:
+                        votes_add = self.add_votes_dict[district_name][party]
+                        votes += votes_add
+
+                if party in self.transfer_votes_dict:
+                    party = self.transfer_votes_dict[party]
 
                 if party in party_votes_total:
                     party_votes_total[party] += votes
@@ -281,6 +246,7 @@ class Norway:
 
         self.party_votes_total = party_votes_total
         self.party_names = party_names
+        self.party_ids = party_ids
         self.distribution = distribution
         self.district_distributions = district_distributions
         self.votes_per_seat = votes_per_seat
@@ -393,7 +359,6 @@ class Norway:
                 seats_to_award = leveling_distribution[party] - distribution[party]
             else:
                 seats_to_award = leveling_distribution[party]
-            #print(party, seats_to_award)
             if district in leveling_awards:
                 continue
             if party in parties_awarded:
@@ -423,11 +388,11 @@ class Norway:
         self.total_minus_blanks = self.total_votes - self.number_of_blanks
         self.blank_votes = blank_votes
 
-    def calculate(self):
+    def calculate(self, dist_method = "stlague"):
         self._calculate_seat_distribution()
         self._calculate_blanks()
         self._message_start("Calculating main distribution")
-        self._calculate_direct_seats()
+        self._calculate_direct_seats(method = dist_method)
         self._message_start("Calculating leveling seats for parties")
         self._calculate_leveling_seats_parties()
         self._message_start("Calculating leveling seats for districts")
@@ -533,6 +498,7 @@ class Norway:
         self.plot_parliament()
         self.plot_num_seats()
         self.plot_map()
+        self.plot_blocks()
         if not self.args.noshow: plt.show()
 
     def plot_parliament(self, save = True):
@@ -682,10 +648,62 @@ class Norway:
         plt.legend()
         if save: plt.savefig(os.path.join(self.args.folder, "kart.png"))
 
+    def plot_blocks(self, save = True):
+        plt.figure(figsize = (14,9))
+        plt.title(self.args.title)
+        plt.tight_layout()
+
+        plt.ylim(-7, 1)
+        plt.xlim(-1, 170)
+        
+        blocks = {"Jonas' drøm": ("A", "SP", "SV"),
+                  "Veldigrød+littgrønn": ("A", "SV", "RØDT", "MDG"),
+                  "'Hele venstresiden'": ("A", "SP", "SV", "RØDT", "MDG"),
+                  "Ernas drøm": ("H", "FRP", "V", "KRF"),
+                  "Sentrum-Høyre": ("H", "V", "KRF"),
+                  "Hæ?": ("H", "SP", "V", "KRF"),
+                  "Pls no": ("H", "SP", "FRP")}
+
+        legend_parties = []
+
+        for i, key in enumerate(blocks):
+            item = blocks[key]
+            plt.text(1, -i + 0.4, key, fontfamily = {"Cascadia Code"})
+            plt.barh(-i, 0.2, 0.8, left = 84.9, color = "black")
+            plt.barh(-i, 169, 0.6, color = "#bbbbbb", edgecolor = "black")
+
+            left = 0
+            for party in item:
+                if party not in self.distribution_with_leveling:
+                    continue
+                seats = self.distribution_with_leveling[party][0]
+                if not party in legend_parties:
+                    label = party
+                    legend_parties.append(party)
+                else:
+                    label = None
+                plt.barh(-i, seats, 0.6, left = left,
+                         color = self.parties_left_to_right[party],
+                         edgecolor = "black", label = label)
+                left += seats
+
+            for party, color in self.parties_left_to_right.items():
+                if party not in self.distribution_with_leveling:
+                    continue
+                data = self.distribution_with_leveling[party]
+                if party not in item:
+                    seats = data[0]
+                    plt.barh(-i, seats, 0.6, left = left,
+                             color = color,
+                             edgecolor = "black", alpha = 0.05)
+                    left += seats
+
+        plt.legend()
+       
 
 class NewCountiesNorway(Norway):
-    def __init__(self, args, filename = "2021-09-17_partydist.csv"):
-        super().__init__(args, filename = filename)
+    def __init__(self, args, filename = "2021-09-17_partydist.csv", leveling_seats = True):
+        super().__init__(args, filename = filename, leveling_seats = leveling_seats)
 
         new_counties = {"Vestland": [12, 14],
                         "Agder": [9, 10],
@@ -740,8 +758,7 @@ class NewCountiesNorway(Norway):
             new_fylkenavn = old_to_new_mapping[old_fylkenavn]
             data["Fylkenavn"] = new_fylkenavn
             self.results.iloc[index] = data
-
-        
+      
     def plot_map(self, save = True):
         plt.figure(figsize = (14,9))
         plt.title(self.args.title)
@@ -798,6 +815,66 @@ class NewCountiesNorway(Norway):
         plt.axis("off")
         plt.legend()
         if save: plt.savefig(os.path.join(self.args.folder, "kart.png"))
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--displaydistricts",
+                        help = "Display direct seats from all districts",
+                        action = "store_true")
+    parser.add_argument("-b", "--blanks",
+                        help = "Display statistics of blank votes",
+                        action = "store_true")
+    parser.add_argument("-l", "--levelinglimit",
+                        help = "The vote share required to be awarded leveling seats",
+                        default = 4,
+                        metavar = "VOTESHARE",
+                        type = float)
+    parser.add_argument("-i", "--individuals",
+                        help = "Display direct seats from individual districts provided as arguments",
+                        nargs = "+",
+                        default = [],
+                        metavar = "DISTRICTS",
+                        type = str)
+    parser.add_argument("-r", "--runanalyze",
+                        help = "Run various analyses on the election results",
+                        action = "store_true")
+    parser.add_argument("-p", "--plot",
+                        help = "Create the plots",
+                        action = "store_true")
+    parser.add_argument("-n", "--noshow",
+                        help = "Suppress the plots being displayed (only save)",
+                        action = "store_true")
+    parser.add_argument("-s", "--startdivisor",
+                        help = "Set the initial divisor (default 1.4)",
+                        default = 1.4,
+                        type = float)
+    parser.add_argument("-a", "--areamultiplier",
+                        help = "Area multiplier for distribution of seats to districts (default 1.8)",
+                        default = 1.8,
+                        type = float)
+    parser.add_argument("-t", "--title",
+                        help = "Title for the plots (default is no title)",
+                        default = "",
+                        type = str)
+    parser.add_argument("-f", "--folder",
+                        help = "Folder to save plots in",
+                        default = "./figs",
+                        type = str)
+    args = parser.parse_args()
+
+    norway = NewCountiesNorway(args, leveling_seats = False)
+    norway.calculate()
+    norway.show_results()
+
+    if args.displaydistricts or args.individuals:
+        norway.show_individual_districts()
+
+    if args.runanalyze:
+        norway.analyze()
+
+    if args.plot:
+        norway.plot_results()
 
 
 if __name__ == "__main__":
