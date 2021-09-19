@@ -900,6 +900,8 @@ def main():
 
     if args.noleveling:
         num_leveling_seats = 0
+    else:
+        num_leveling_seats = 1
 
     if args.onedistrict:
         norway = Norway(args, num_leveling_seats = 169) # can't disable leveling seats for single district,
