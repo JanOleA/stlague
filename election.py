@@ -218,6 +218,7 @@ class Norway:
                     if party in self.add_votes_dict[district_name]:
                         votes_add = self.add_votes_dict[district_name][party]
                         votes += votes_add
+                        self.total_votes += votes_add
 
                 if party in self.transfer_votes_dict:
                     party = self.transfer_votes_dict[party]
@@ -400,11 +401,11 @@ class Norway:
     def calculate(self, dist_method = "stlague"):
         self._calculate_seat_distribution()
         self._calculate_blanks()
-        self._message_start("Calculating main distribution")
+        self._message_start("Beregner direktedistribusjon av mandater")
         self._calculate_direct_seats(method = dist_method)
-        self._message_start("Calculating leveling seats for parties")
+        self._message_start("Beregner hvilke partier som får utjevningsmandater")
         self._calculate_leveling_seats_parties()
-        self._message_start("Calculating leveling seats for districts")
+        self._message_start("Beregner hvilke valgdistrikt som får utjevningsmandater")
         self._calculate_leveling_seats_districts()
         self._message_end()
         self._make_votes_per_seat_table()
@@ -416,10 +417,10 @@ class Norway:
         self._start_time = time.perf_counter()
         self._message = message
         self._active_message = True
-        print(f"{message}  [running]  ", end = "\r")
+        print(f"{message:60s}  [kjører]  ", end = "\r")
 
     def _message_end(self):
-        print(f"{self._message}  [Completed in: {time.perf_counter() - self._start_time:>7.5f}s]  ")
+        print(f"{self._message:60s}  [  ok  ]  ({time.perf_counter() - self._start_time:>7.5f}s)  ")
         self._active_message = False
 
     def _make_distribution_table(self):
@@ -913,6 +914,9 @@ def main():
         norway = NewCountiesNorway(args, num_leveling_seats = num_leveling_seats)
     else:
         norway = Norway(args, num_leveling_seats = num_leveling_seats)
+
+    norway.add_votes("Akershus", "MDG", 1792)
+
     norway.calculate(dist_method = args.method)
     norway.show_results()
 
