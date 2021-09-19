@@ -845,7 +845,7 @@ def parse_args():
                         help = "Area multiplier for distribution of seats to districts (default 1.8)",
                         default = 1.8,
                         type = float)
-    parser.add_argument("-c", "--counties",
+    parser.add_argument("-c", "--newcounties",
                         help = "Use the modern (new in 2020) counties of Norway to calculate the distribution of seats and results",
                         action = "store_true")
     parser.add_argument("-o", "--onedistrict",
@@ -905,7 +905,7 @@ def main():
         norway = Norway(args, num_leveling_seats = 169) # can't disable leveling seats for single district,
                                                         # since all seats are equivalent to leveling seats
                                                         # in this case
-    elif args.counties:
+    elif args.newcounties:
         norway = NewCountiesNorway(args, num_leveling_seats = num_leveling_seats)
     else:
         norway = Norway(args, num_leveling_seats = num_leveling_seats)
