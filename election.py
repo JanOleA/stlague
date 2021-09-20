@@ -4,6 +4,7 @@ import time
 
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy.lib.type_check import nan_to_num
 import pandas as pd
 
 from district import District
@@ -195,6 +196,7 @@ class Norway:
         party_ids = {}
         distribution = {}
         district_distributions = {}
+        district_votes_distributions = {}
         votes_per_seat = {}
 
         electoral_districts = results.Fylkenavn.unique()
@@ -206,8 +208,10 @@ class Norway:
                                              np.round(total_votes_dis/total_seats[district_name], 1)]
 
             electoral_district = District(seats_without_leveling[district_name],
-                                          initial_divisor = self.args.startdivisor,
+                                          initial_divisor = self.args.initialdivisor,
                                           method = method)
+
+            district_votes_distribution = {}
 
             for party in parties:
                 results_party = results_dis[results_dis["Partikode"] == party]
@@ -233,6 +237,7 @@ class Norway:
                 if party == "BLANKE":
                     continue
                 electoral_district.add_votes(party, votes)
+                district_votes_distribution[party] = votes
 
             if self.args.hardlimit:
                 # stop parties with less than the leveling limit from gaining any seats at all (even direct district seats)
@@ -247,6 +252,7 @@ class Norway:
 
             district_distribution = electoral_district.calculate()
             district_distributions[district_name] = district_distribution
+            district_votes_distributions[district_name] = district_votes_distribution
 
             for party, seats in district_distribution.items():
                 if not seats:
@@ -261,6 +267,8 @@ class Norway:
         self.party_ids = party_ids
         self.distribution = distribution
         self.district_distributions = district_distributions
+        self.district_votes_ditributions = district_votes_distributions
+        self.district_votes_distributions_table = pd.DataFrame(district_votes_distributions).fillna(0)
         self.votes_per_seat = votes_per_seat
         self.electoral_districts = electoral_districts
 
@@ -480,6 +488,10 @@ class Norway:
                 if seats == 0:
                     continue
                 print(f"{self.party_names[party]:>35s} {seats:>3d}")
+            print(f"\nStemmer i {district}")
+            district_votes = self.district_votes_distributions_table[district]
+            print(district_votes.sort_values(ascending = False))
+            print("Av totalt:",np.sum(district_votes))
 
     def print_blanks_info(self):
         print("\n" + "#"*30)
@@ -494,25 +506,29 @@ class Norway:
             self.print_blanks_info()
 
         print("")
+        print("Antall stemmer per parti og valgdistrikt")
+        print(self.district_votes_distributions_table)
+
+        print("")
         print(f"Antall stemmer totalt: {self.total_minus_blanks}")
 
         print("")
         print(self.votes_per_seat)
 
         print("")
-        print(f"Grense for utjevningsmandater = {self.args.levelinglimit}%  |  Første delingstall: {self.args.startdivisor}")
+        print(f"Grense for utjevningsmandater = {self.args.levelinglimit}%  |  Første delingstall: {self.args.initialdivisor}")
         print(self.distribution_table)
 
     def plot_results(self):
         if self.args.title == "":
-            self.args.title = f"Sperregrense: {self.args.levelinglimit}% | Første delingstall: {self.args.startdivisor}"
+            self.args.title = f"Sperregrense: {self.args.levelinglimit}% | Første delingstall: {self.args.initialdivisor}"
         if not os.path.isdir(self.args.folder):
             os.makedirs(self.args.folder)
         self.plot_parliament()
         self.plot_num_seats()
         self.plot_map()
         self.plot_blocks()
-        if not self.args.noshow: plt.show()
+        if self.args.showplot: plt.show()
 
     def plot_parliament(self, save = True):
         plt.figure(figsize = (12,3.2))
@@ -834,15 +850,12 @@ class NewCountiesNorway(Norway):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-b", "--blanks",
-                        help = "Display statistics of blank votes",
-                        action = "store_true")
     parser.add_argument("-l", "--levelinglimit",
                         help = "The vote share required to be awarded leveling seats",
                         default = 4,
                         metavar = "VOTESHARE",
                         type = float)
-    parser.add_argument("-s", "--startdivisor",
+    parser.add_argument("-i", "--initialdivisor",
                         help = "Set the initial divisor when using the Sainte-Laguë method (default 1.4)",
                         default = 1.4,
                         type = float)
@@ -850,43 +863,46 @@ def parse_args():
                         help = "Area multiplier for distribution of seats to districts (default 1.8)",
                         default = 1.8,
                         type = float)
-    parser.add_argument("-c", "--newcounties",
-                        help = "Use the modern (new in 2020) counties of Norway to calculate the distribution of seats and results",
-                        action = "store_true")
-    parser.add_argument("-o", "--onedistrict",
-                        help = "Treat the whole country as a single electoral district",
-                        action = "store_true")
-    parser.add_argument("-x", "--hardlimit",
-                        help = "Treat the leveling limit as a hard limit (parties with less than the limit are excluded from gaining any seats)",
-                        action = "store_true")
-    parser.add_argument("-z", "--noleveling",
-                        help = "Disable leveling seats",
-                        action = "store_true")
-    parser.add_argument("-u", "--usadist",
-                        help = "Distribute seats to the districts similar to the way used for states in the US",
-                        action = "store_true")
     parser.add_argument("-m", "--method",
                         help = "Method to use when calculating results for each district",
                         choices = ["stlague", "fptp", "hunthill"],
                         default = "stlague",
                         type = str)
-    parser.add_argument("-i", "--individuals",
+    parser.add_argument("-n", "--newcounties",
+                        help = "Use the modern (new in 2020) counties of Norway to calculate the distribution of seats and results",
+                        action = "store_true")
+    parser.add_argument("-O", "--onedistrict",
+                        help = "Treat the whole country as a single electoral district",
+                        action = "store_true")
+    parser.add_argument("-H", "--hardlimit",
+                        help = "Treat the leveling limit as a hard limit (parties with less than the limit are excluded from gaining any seats)",
+                        action = "store_true")
+    parser.add_argument("-N", "--noleveling",
+                        help = "Disable leveling seats",
+                        action = "store_true")
+    parser.add_argument("-U", "--usadist",
+                        help = "Distribute seats to the districts in a similar way similar to the method used for the states in the US",
+                        action = "store_true")
+    parser.add_argument("-B", "--blanks",
+                        help = "Display statistics for blank votes",
+                        action = "store_true")
+    parser.add_argument("-I", "--individuals",
                         help = "Display direct seats from individual districts provided as arguments",
                         nargs = "+",
                         default = [],
                         metavar = "DISTRICTS",
                         type = str)
-    parser.add_argument("-d", "--displaydistricts",
+    parser.add_argument("-D", "--displaydistricts",
                         help = "Display direct seats from all districts",
                         action = "store_true")
-    parser.add_argument("-r", "--runanalyze",
-                        help = "Run various analyses on the election results",
+    parser.add_argument("-R", "--runanalyze",
+                        help = "Run an analysis on the election results",
                         action = "store_true")
-    parser.add_argument("-p", "--plot",
+    parser.add_argument("-P", "--plot",
                         help = "Create the plots",
                         action = "store_true")
-    parser.add_argument("-n", "--noshow",
-                        help = "Suppress the plots being displayed (only save)",
+    parser.add_argument("-S", "--showplot",
+                        help = "Show the plots",
                         action = "store_true")
     parser.add_argument("-t", "--title",
                         help = "Title for the plots (default is no title)",
