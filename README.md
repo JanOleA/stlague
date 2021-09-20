@@ -26,6 +26,9 @@ Scroll ned for å se de faktiske resultatene.
     - [Ingen arealfaktor](figs/areal/faktor0/README.md)
     - [Arealfaktor på 1](figs/areal/faktor1/README.md)
     - [Arealfaktor på 3](figs/areal/faktor3/README.md)
+- **Ny fylkesinndeling**
+    - [Modifisert Sainte-Laguë](figs/nyefylker/modf/README.md)
+    - [Umodifisert Sainte-Laguë](figs/nyefylker/unmodf/README.md)
 - **Hele landet som ett valgdistrikt**
     - [Ett valgdistrikt, 169 mandater](figs/ett_distrikt/README.md)
 - **Amerikanske metoder (First Past The Post)**

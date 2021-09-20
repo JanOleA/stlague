@@ -674,7 +674,7 @@ class Norway:
                     seats_plotted += 1            
         plt.axis("equal")
         plt.axis("off")
-        plt.legend()
+        plt.legend(loc = "upper left")
         if save: plt.savefig(os.path.join(self.args.folder, "kart.png"))
 
     def plot_blocks(self, save = True):
@@ -692,7 +692,7 @@ class Norway:
                   "De blågrønne": ("H", "SP", "FRP", "V", "KRF"),
                   "Sentrum-Høyre": ("H", "V", "KRF"),
                   "Sentrum-Sentrum-Høyre": ("H", "SP", "V", "KRF"),
-                  "Pls no": ("H", "SP", "FRP")}
+                  "Blåblågrønn": ("H", "SP", "FRP")}
 
         legend_parties = []
 
