@@ -594,13 +594,17 @@ class Norway:
             diff = seats - actual
             if diff > 0:
                 marker = "↑"
+                textcolor = "darkgreen"
             elif diff < 0:
                 marker = "↓"
+                textcolor = "darkred"
             else:
                 marker = "→"
+                textcolor = "black"
             plt.plot([0], [-row], marker = "s", color = "#000000", markersize = 11)
             plt.plot([0], [-row], marker = "s", color = color, markersize = 10)
-            plt.text(0, -row - 0.1, f"{partyname:>33s}, {seats:>3d}  {marker} {abs(diff)}", fontfamily = "Cascadia Mono")
+            plt.text(0, -row - 0.1, f"{partyname:>33s}: {seats:>3d}  {marker} {abs(diff)}",
+                     fontfamily = "Cascadia Mono", color = textcolor)
             row += 1
 
         plt.xlim(-0.2, 0.7)
