@@ -290,10 +290,13 @@ class Norway:
             party_percent_of_total = self.party_votes_total[party]/(self.total_votes - self.number_of_blanks)*100
             party_vote_shares[party] = np.round(party_percent_of_total, 2)
         
-            if party_percent_of_total < leveling_seats_limit:
-                leveling_seats -= seats
-            else:
+            if party_percent_of_total >= leveling_seats_limit:
                 parties_competing_votes[party] = votes
+            elif party in self.distribution and self.args.singleseatleveling:
+                if self.distribution[party] >= 1:
+                    parties_competing_votes[party] = votes
+            else:
+                leveling_seats -= seats
 
         # initial distribution before removing overrepresented parties
         leveling_district = District(leveling_seats)
@@ -870,6 +873,9 @@ def parse_args():
                         type = str)
     parser.add_argument("-n", "--newcounties",
                         help = "Use the modern (new in 2020) counties of Norway to calculate the distribution of seats and results",
+                        action = "store_true")
+    parser.add_argument("-s", "--singleseatleveling",
+                        help = "Allow parties to compete for leveling seats if they have received direct seats anywhere (or if they reach the limit)",
                         action = "store_true")
     parser.add_argument("-O", "--onedistrict",
                         help = "Treat the whole country as a single electoral district",
