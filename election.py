@@ -603,7 +603,7 @@ class Norway:
                 textcolor = "black"
             plt.plot([0], [-row], marker = "s", color = "#000000", markersize = 11)
             plt.plot([0], [-row], marker = "s", color = color, markersize = 10)
-            plt.text(0, -row - 0.1, f"{partyname:>33s}: {seats:>3d}  {marker} {abs(diff)}",
+            plt.text(0, -row - 0.1, f"{partyname:>40s}: {seats:>3d}  {marker} {abs(diff)}",
                      fontfamily = "Cascadia Mono", color = textcolor)
             row += 1
 
