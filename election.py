@@ -145,6 +145,8 @@ class Norway:
         self.transfer_votes_dict = {}
 
     def add_votes(self, district, party, votes):
+        if not district in self.populations:
+            print(f"Attempted to add votes in district {district}, but it doesn't exist.")
         if district in self.add_votes_dict:
             parties_dict = self.add_votes_dict[district]
             parties_dict[party] = votes
@@ -914,8 +916,15 @@ def main():
         norway = NewCountiesNorway(args, num_leveling_seats = num_leveling_seats)
     else:
         norway = Norway(args, num_leveling_seats = num_leveling_seats)
-
-    norway.add_votes("Akershus", "MDG", 1792)
+        adjustments = pd.read_excel("justeringer.ods")
+        for row in adjustments.iterrows():
+            party = row[1]["Partikode"]
+            for district in row[1].iteritems():
+                name = district[0]
+                votes = district[1]
+                if name == "Partikode" or name == "Partinavn":
+                    continue
+                norway.add_votes(name, party, votes)
 
     norway.calculate(dist_method = args.method)
     norway.show_results()
