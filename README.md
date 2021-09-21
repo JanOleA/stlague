@@ -36,8 +36,8 @@ Scroll ned for å se de faktiske resultatene + en kort intro til hvordan program
     - [Mandatene utdelt til fylker som i USA (først én, deretter resten fordelt etter populasjon (Huntington-Hills metode), og deretter to ekstra til hvert fylke)](figs/usaway/usamandater/README.md)
 
 ## Kjøre programmet selv
-Om du vil kjøre programmet selv, skriv `python election.py -h` for en rask guide til hvordan programmet kan brukes (se evt. på eksemplene i `generate_scenarios.sh`).  
-Du trenger en relativt ny versjon av Python, og pakkene: numpy, matplotlib, pandas og odfpy.
+Om du vil kjøre programmet selv, skriv `python election.py -h` i et terminalvindu i samme mappe du laster ned programmet til for en rask guide til hvordan programmet kan brukes (se evt. på eksemplene i `generate_scenarios.sh`).  
+Du trenger en relativt ny versjon av Python installert, og Python-pakkene: numpy, matplotlib, pandas og odfpy.
 
 Du kan også endre antallet stemmer hvert parti fikk ved å fylle ut `justeringer.ods`. Regnearket leses av programmet og stemmene legges til for partiene i de valgkretsene du velger. Dette fungerer bare om du bruker de gamle valgkretsene, ikke hvis du bruker de nye fylkene.
 
