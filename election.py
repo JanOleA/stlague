@@ -11,7 +11,7 @@ from district import District
 
 
 class Norway:
-    def __init__(self, args, filename = "2021-09-17_partydist.csv", num_leveling_seats = 1):
+    def __init__(self, args, filename = "2021-09-21_partydist_final.csv", num_leveling_seats = 1):
         self._active_message = False
         self.args = args
         self.results = pd.read_csv(filename, delimiter = ";")
@@ -107,15 +107,18 @@ class Norway:
                                  "A":    "#ff0000",
                                  "SP":   "#93c77d",
                                  "MDG":  "#129600",
+                                 "HJEM": "#ededed", # Hjemmesitterne
+                                 "BLANKE": "#000000", # Blankpartiet
                                  "PP":   "#386782",
                                  "PS":   "#b3321c",
+                                 "V":    "#00ffe1",
                                  "KRF":  "#d9ff00",
                                  "PF":   "#828282",
                                  "INP":  "#ffb300",
-                                 "V":    "#00ffe1",
                                  "H":    "#0084ff",
                                  "FRP":  "#0038b0",
-                                 "DEMN": "#7211b0",}
+                                 "DEMN": "#7211b0",
+                                 }
 
         all_parties = self.results.Partikode.unique()
         for party in all_parties:
@@ -207,6 +210,9 @@ class Norway:
             votes_per_seat[district_name] = [district_name,
                                              np.round(total_votes_dis/total_seats[district_name], 1)]
 
+            district_eligibles = results_dis["Antall stemmeberettigede"].iloc[0]
+            participation = total_votes_dis/district_eligibles*100
+
             electoral_district = District(seats_without_leveling[district_name],
                                           initial_divisor = self.args.initialdivisor,
                                           method = method)
@@ -224,17 +230,31 @@ class Norway:
                     if party in self.add_votes_dict[district_name]:
                         votes_add = self.add_votes_dict[district_name][party]
                         votes += votes_add
-                        self.total_votes += votes_add
 
                 if party in self.transfer_votes_dict:
                     party = self.transfer_votes_dict[party]
+
+                if party == "BLANKE" and (self.args.couchvoters or self.args.combinecouchblank):
+                    couchvoters = district_eligibles - total_votes_dis
+                    self.total_votes += couchvoters
+                    self.total_minus_blanks += couchvoters
+                    if self.args.combinecouchblank:
+                        votes = couchvoters + votes
+                        party = "HJEM"
+                    else:
+                        if "HJEM" in party_votes_total:
+                            party_votes_total["HJEM"] += couchvoters
+                        else:
+                            party_votes_total["HJEM"] = couchvoters
+                        electoral_district.add_votes("HJEM", couchvoters)
+                        district_votes_distribution["HJEM"] = couchvoters
 
                 if party in party_votes_total:
                     party_votes_total[party] += votes
                 else:
                     party_votes_total[party] = votes
 
-                if party == "BLANKE":
+                if party == "BLANKE" and not self.args.blankparty:
                     continue
                 electoral_district.add_votes(party, votes)
                 district_votes_distribution[party] = votes
@@ -242,13 +262,14 @@ class Norway:
             if self.args.hardlimit:
                 # stop parties with less than the leveling limit from gaining any seats at all (even direct district seats)
                 for party in parties:
-                    if party == "BLANKE":
+                    if party == "BLANKE" and not self.args.blankparty:
                         continue
                     party_votes_total_this = results[results["Partikode"] == party]
                     party_votes_total_this = party_votes_total_this.sum()
-                    if party_votes_total_this["Antall stemmer totalt"]/(self.total_votes
-                                                                        - self.number_of_blanks)*100 < self.args.levelinglimit:
+                    if party_votes_total_this["Antall stemmer totalt"]/(self.total_minus_blanks)*100 < self.args.levelinglimit:
                         electoral_district.remove_party(party)
+
+            district_votes_distribution["Deltagelse (%)"] = np.round(participation, 2)
 
             district_distribution = electoral_district.calculate()
             district_distributions[district_name] = district_distribution
@@ -261,6 +282,8 @@ class Norway:
                     distribution[party] += seats
                 else:
                     distribution[party] = seats
+
+        party_names["HJEM"] = "Hjemmesitterne"
 
         self.party_votes_total = party_votes_total
         self.party_names = party_names
@@ -281,13 +304,13 @@ class Norway:
         parties_competing_votes = {}
 
         for party, votes in self.party_votes_total.items():
-            if party == "BLANKE":
+            if party == "BLANKE" and not self.args.blankparty:
                 continue
             if party in self.distribution:
                 seats = self.distribution[party]
             else:
                 seats = 0
-            party_percent_of_total = self.party_votes_total[party]/(self.total_votes - self.number_of_blanks)*100
+            party_percent_of_total = self.party_votes_total[party]/(self.total_minus_blanks)*100
             party_vote_shares[party] = np.round(party_percent_of_total, 2)
         
             if party_percent_of_total >= leveling_seats_limit:
@@ -330,13 +353,13 @@ class Norway:
                 diff = seats - seats_before
             else:
                 diff = 0
-            votes_for_leveling = np.ceil(((leveling_seats_limit/100)*(self.total_votes - self.number_of_blanks) - self.party_votes_total[party])/(1 - leveling_seats_limit/100)) # votes required for the party to gain leveling seats
+            votes_for_leveling = np.ceil(((leveling_seats_limit/100)*(self.total_minus_blanks) - self.party_votes_total[party])/(1 - leveling_seats_limit/100)) # votes required for the party to gain leveling seats
             distribution_with_leveling[party] = [seats, diff, party_vote_shares[party], self.party_votes_total[party], votes_for_leveling]
 
         for party, seats in leveling_distribution.items():
             if not party in self.distribution:
                 seats = leveling_distribution[party]
-                votes_for_leveling = np.ceil(((leveling_seats_limit/100)*(self.total_votes - self.number_of_blanks) - self.party_votes_total[party])/(1 - leveling_seats_limit/100)) # votes required for the party to gain leveling seats
+                votes_for_leveling = np.ceil(((leveling_seats_limit/100)*(self.total_minus_blanks) - self.party_votes_total[party])/(1 - leveling_seats_limit/100)) # votes required for the party to gain leveling seats
                 distribution_with_leveling[party] = [seats, seats, party_vote_shares[party], self.party_votes_total[party], votes_for_leveling]
 
         self.leveling_distribution = leveling_distribution # just the distribution for the leveling seats
@@ -407,7 +430,10 @@ class Norway:
         num_possible_voters = results[results["Partikode"] == "BLANKE"]["Antall stemmeberettigede"]
         percent_blanks = blank_votes["Antall stemmer totalt"]/num_possible_voters*100
         blank_votes["% av stemmeberettigede"] = percent_blanks
-        self.number_of_blanks = blank_votes["Antall stemmer totalt"].sum(axis = 0)
+        if self.args.couchvoters or self.args.blankparty:
+            self.number_of_blanks = 0
+        else:
+            self.number_of_blanks = blank_votes["Antall stemmer totalt"].sum(axis = 0)
         self.total_minus_blanks = self.total_votes - self.number_of_blanks
         self.blank_votes = blank_votes
 
@@ -755,7 +781,7 @@ class NewCountiesNorway(Norway):
                         "Oslo": [3],
                         "Trøndelag": [16, 17]}
 
-        locations = {"Viken":                [0.85, 1.1],
+        locations = {"Viken":                [-1.5, 0.8],
                      "Oslo":                 [0, 0],
                      "Innlandet":            [-0.6, 2],
                      "Vestfold og Telemark": [-1.9, -0.6],
@@ -892,6 +918,15 @@ def parse_args():
                         action = "store_true")
     parser.add_argument("-U", "--usadist",
                         help = "Distribute seats to the districts in a similar way similar to the method used for the states in the US",
+                        action = "store_true")
+    parser.add_argument("-C", "--couchvoters",
+                        help = "Include the 'couchvoters' party in the calculation (people who don't vote) [note: does not work when using new counties]",
+                        action = "store_true")
+    parser.add_argument("-b", "--blankparty",
+                        help = "Include the 'blank' party in the calculation (people who vote blank)",
+                        action = "store_true")
+    parser.add_argument("-c", "--combinecouchblank",
+                        help = "Combine the 'blank party' and the 'couchvoter' party into one",
                         action = "store_true")
     parser.add_argument("-B", "--blanks",
                         help = "Display statistics for blank votes",
