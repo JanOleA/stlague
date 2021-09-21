@@ -31,6 +31,10 @@ Scroll ned for å se de faktiske resultatene + en kort intro til hvordan program
     - [Arealfaktor på 3](figs/areal/faktor3/README.md)
 - **Hele landet som ett valgdistrikt**
     - [Ett valgdistrikt, 169 mandater](figs/ett_distrikt/README.md)
+- **Hjemmesitterne**
+    - [Hjemmesitterne har et eget parti](figs/hjemmesitterne/hjem/README.md)
+    - [Hjemmesitterne har et eget parti og sperregrensen er 3%](figs/hjemmesitterne/hjemsg3/README.md)
+    - [Hjemmesitterne + blanke stemmer har et parti sammen](figs/hjemmesitterne/hjemblank/README.md)
 - **Amerikanske metoder (First Past The Post)**
     - [Fylkesfordelingen som normalt](figs/usaway/stdmandater/README.md)
     - [Mandatene utdelt til fylker som i USA (først én, deretter resten fordelt etter populasjon (Huntington-Hills metode), og deretter to ekstra til hvert fylke)](figs/usaway/usamandater/README.md)

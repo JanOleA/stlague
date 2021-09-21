@@ -37,3 +37,8 @@ python election.py -t "Sperregrensen = 5% | Umodifisert Sainte-Laguë" -f "./fig
 # American ways (FPTP WTA)
 python election.py -t "First Past The Post | norsk mandatfordeling" -f "./figs/usaway/stdmandater" -l 4 -i 1.4 -a 1.8 -m fptp -PN
 python election.py -t "First Past The Post | amerikansk mandatfordeling" -f "./figs/usaway/usamandater" -l 4 -i 1 -a 1.8 -m fptp -PUN
+
+# Couchvoter party
+python election.py -t "Hjemmesitterne har et eget parti" -f "./figs/hjemmesitterne/hjem" -l 4 -i 1.4 -a 1.8 -m stlague -C -P
+python election.py -t "Hjemmesitterne har et eget parti og sperregrensen er 3%" -f "./figs/hjemmesitterne/hjemsg4" -l 3 -i 1.4 -a 1.8 -m stlague -C -P
+python election.py -t "Hjemmesitterne og blanke har et eget parti sammen" -f "./figs/hjemmesitterne/hjemblank" -l 4 -i 1.4 -a 1.8 -m stlague -Ccb -P
