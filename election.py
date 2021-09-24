@@ -4,7 +4,6 @@ import time
 
 import matplotlib.pyplot as plt
 import numpy as np
-from numpy.lib.type_check import nan_to_num
 import pandas as pd
 
 from district import District
@@ -290,7 +289,7 @@ class Norway:
         self.party_ids = party_ids
         self.distribution = distribution
         self.district_distributions = district_distributions
-        self.district_votes_ditributions = district_votes_distributions
+        self.district_votes_distributions = district_votes_distributions
         self.district_votes_distributions_table = pd.DataFrame(district_votes_distributions).fillna(0)
         self.votes_per_seat = votes_per_seat
         self.electoral_districts = electoral_districts
@@ -310,13 +309,13 @@ class Norway:
                 seats = self.distribution[party]
             else:
                 seats = 0
-            party_percent_of_total = self.party_votes_total[party]/(self.total_minus_blanks)*100
+            party_percent_of_total = 100*votes/self.total_minus_blanks
             party_vote_shares[party] = np.round(party_percent_of_total, 2)
         
             if party_percent_of_total >= leveling_seats_limit:
                 parties_competing_votes[party] = votes
             elif party in self.distribution and self.args.singleseatleveling:
-                if self.distribution[party] >= 1:
+                if seats >= 1:
                     parties_competing_votes[party] = votes
             else:
                 leveling_seats -= seats
