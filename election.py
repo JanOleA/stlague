@@ -557,10 +557,12 @@ class Norway:
         save = self.args.saveplot
         self._legend_font = font_manager.FontProperties(family = "Noto Sans",
                                                         size = 7)
+        self._message_start("Lager figurer")
         self.plot_parliament(save = save, num_seats = self._num_seats, num_rows = parliament_rows)
         self.plot_num_seats(save = save)
         self.plot_map(save = save)
         self.plot_blocks(save = save)
+        self._message_end()
         if not self.args.saveplot: plt.show()
 
     def plot_parliament(self, save = True, num_seats = 169, num_rows = 6, figsize = None):
@@ -1020,7 +1022,7 @@ def main():
                 norway.add_votes(name, party, votes)
 
     norway.calculate(dist_method = args.method, num_seats = 169)
-    
+
     if args.results:
         norway.show_results()
 
