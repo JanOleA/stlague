@@ -2,6 +2,7 @@ import argparse
 import os
 import time
 
+import matplotlib.font_manager as font_manager
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -110,9 +111,9 @@ class Norway:
                                  "BLANKE": "#000000", # Blankpartiet
                                  "PP":   "#386782",
                                  "PS":   "#b3321c",
+                                 "PF":   "#828282",
                                  "V":    "#00ffe1",
                                  "KRF":  "#d9ff00",
-                                 "PF":   "#828282",
                                  "INP":  "#ffb300",
                                  "H":    "#0084ff",
                                  "FRP":  "#0038b0",
@@ -161,12 +162,12 @@ class Norway:
     def transfer_votes(self, from_party, to_party):
         self.transfer_votes_dict[from_party] = to_party
 
-    def _calculate_seat_distribution(self):
+    def _calculate_seat_distribution(self, num_seats = 169):
         if self.args.usadist:
-            seat_distribution = District(169 - 2*len(self.populations.items()),
+            seat_distribution = District(num_seats - 2*len(self.populations.items()),
                                          method = "hunthill", initial_seats = 1)
         else:
-            seat_distribution = District(169, initial_divisor = 1)
+            seat_distribution = District(num_seats, initial_divisor = 1)
 
         for district_name, population in self.populations.items():
             area = self.dist_areas[district_name]
@@ -182,11 +183,11 @@ class Norway:
                 self.total_seats[district_name] = seats + 2
 
         self.seats_without_leveling = {}
-        s = 0 # check that the total is 169 as well
+        s = 0 # check that the total is num_seats as well
         for key, item in self.total_seats.items():
             s += item
             self.seats_without_leveling[key] = item - self.num_leveling_seats
-        assert s == 169 # check that the total is 169 as well
+        assert s == num_seats # check that the total is num_seats as well
 
     def _calculate_direct_seats(self, method = "stlague"):
         results = self.results
@@ -294,10 +295,10 @@ class Norway:
         self.votes_per_seat = votes_per_seat
         self.electoral_districts = electoral_districts
 
-    def _calculate_leveling_seats_parties(self):
+    def _calculate_leveling_seats_parties(self, num_seats = 169):
         party_vote_shares = {}
 
-        leveling_seats = 169
+        leveling_seats = num_seats
         leveling_seats_limit = self.args.levelinglimit
 
         parties_competing_votes = {}
@@ -436,18 +437,19 @@ class Norway:
         self.total_minus_blanks = self.total_votes - self.number_of_blanks
         self.blank_votes = blank_votes
 
-    def calculate(self, dist_method = "stlague"):
-        self._calculate_seat_distribution()
+    def calculate(self, dist_method = "stlague", num_seats = 169):
+        self._num_seats = num_seats
+        self._calculate_seat_distribution(num_seats = num_seats)
         self._calculate_blanks()
         self._message_start("Beregner direktedistribusjon av mandater")
         self._calculate_direct_seats(method = dist_method)
         self._message_start("Beregner hvilke partier som får utjevningsmandater")
-        self._calculate_leveling_seats_parties()
+        self._calculate_leveling_seats_parties(num_seats = num_seats)
         self._message_start("Beregner hvilke valgdistrikt som får utjevningsmandater")
         self._calculate_leveling_seats_districts()
         self._message_end()
         self._make_votes_per_seat_table()
-        self._make_distribution_table()
+        self._make_distribution_table(num_seats = num_seats)
 
     def _message_start(self, message):
         if self._active_message:
@@ -461,7 +463,7 @@ class Norway:
         print(f"{self._message:60s}  [  ok  ]  ({time.perf_counter() - self._start_time:>7.5f}s)  ")
         self._active_message = False
 
-    def _make_distribution_table(self):
+    def _make_distribution_table(self, num_seats = 169):
         display_dict = {}
         for party, seats in self.distribution_with_leveling.items():
             display_dict[self.party_names[party]] = seats
@@ -471,7 +473,7 @@ class Norway:
         distribution_table = distribution_table.sort_values("Mandater", axis = 0, ascending = False)
 
         seat_sums = distribution_table.sum(axis = 0)
-        assert seat_sums["Mandater"] == 169, f"Sum of seats should be 169, not {seat_sums['Mandater']}"
+        assert seat_sums["Mandater"] == num_seats, f"Sum of seats should be {num_seats}, not {seat_sums['Mandater']}"
 
         self.distribution_table = distribution_table
 
@@ -547,52 +549,76 @@ class Norway:
         print(f"Grense for utjevningsmandater = {self.args.levelinglimit}%  |  Første delingstall: {self.args.initialdivisor}")
         print(self.distribution_table)
 
-    def plot_results(self):
+    def plot_results(self, parliament_rows = 6):
         if self.args.title == "":
             self.args.title = f"Sperregrense: {self.args.levelinglimit}% | Første delingstall: {self.args.initialdivisor}"
         if not os.path.isdir(self.args.folder):
             os.makedirs(self.args.folder)
-        self.plot_parliament()
-        self.plot_num_seats()
-        self.plot_map()
-        self.plot_blocks()
-        if self.args.showplot: plt.show()
+        save = self.args.saveplot
+        self._legend_font = font_manager.FontProperties(family = "Noto Sans",
+                                                        size = 7)
+        self.plot_parliament(save = save, num_seats = self._num_seats, num_rows = parliament_rows)
+        self.plot_num_seats(save = save)
+        self.plot_map(save = save)
+        self.plot_blocks(save = save)
+        if not self.args.saveplot: plt.show()
 
-    def plot_parliament(self, save = True):
-        plt.figure(figsize = (12,3.2))
+    def plot_parliament(self, save = True, num_seats = 169, num_rows = 6, figsize = None):
+        if figsize is None:
+            figsize = (12,2.3)
+        plt.figure(figsize = figsize)
+
+        num_columns = num_seats // num_rows
+        half_col = num_columns // 2
+        half_seats = num_seats // 2
+
+        if num_seats % 2 == 1:
+            centre_seat = True
+            middle_col = num_columns // 2
+            middle_row = num_rows // 2 - 0.5
+        else:
+            centre_seat = False
         
         plt.title(self.args.title)
         plt.axis("off")
         plt.tight_layout()
-        plt.ylim((-6.5, 1))
-        plt.xlim((-2, 32))
+        plt.ylim((-num_rows - 2.5, 2.5))
+        plt.xlim((-2, num_columns + 6))
         i = 0
-        while i < 169:
+        while i < num_seats:
             for party, color in self.parties_left_to_right.items():
                 if not party in self.distribution_with_leveling:
                     continue
                 seats = self.distribution_with_leveling[party][0]
                 for seat in range(seats):
-                    if i < 84:
-                        col = i//6
-                        row = i%6
-                    elif i == 84:
-                        col = 13.8
-                        row = 2.5
+                    if i > half_seats and centre_seat:
+                        col = i//num_rows
+                        row = i%num_rows
                     else:
-                        col = (i-1)//6 + 0.6
-                        row = (i-1)%6
+                        col = i//num_rows
+                        row = i%num_rows
 
+                    if col == half_col and centre_seat:
+                        i += num_rows
+                        col = middle_col
+                        row = middle_row
+                    else:
+                        i += 1
+                        
+                    
                     if seat == 0:
                         label = party
                     else:
                         label = None
 
+                    if col % 2 == 1:
+                        row = num_rows - 1 - row
                     plt.plot([col], [-row], marker = "s", color = "#000000", markersize = 11)
                     plt.plot([col], [-row], marker = "s", color = color, markersize = 10, label = label)
-                    i += 1
 
-        plt.legend()
+                    
+
+        leg = plt.legend(prop = self._legend_font)
         if save: plt.savefig(os.path.join(self.args.folder, "tinget.png"))
 
     def plot_num_seats(self, save = True):
@@ -714,8 +740,12 @@ class Norway:
         plt.title(self.args.title)
         plt.tight_layout()
 
+        seat_sums = self.distribution_table.sum(axis = 0)
+        seat_sums = seat_sums["Mandater"]
+        half = seat_sums//2 + 1
+
         plt.ylim(-8, 1)
-        plt.xlim(-1, 170)
+        plt.xlim(-1, seat_sums + 1)
         
         blocks = {"Jonas' drøm": ("A", "SP", "SV"),
                   "Veldigrød+littgrønn": ("A", "SV", "RØDT", "MDG"),
@@ -726,13 +756,13 @@ class Norway:
                   "Sentrum-Sentrum-Høyre": ("H", "SP", "V", "KRF"),
                   "Blåblågrønn": ("H", "SP", "FRP")}
 
-        legend_parties = []
+        legend_parties = []        
 
         for i, key in enumerate(blocks):
             item = blocks[key]
             plt.text(1, -i + 0.4, key, fontfamily = {"Cascadia Code"})
-            plt.barh(-i, 0.2, 0.8, left = 84.9, color = "black")
-            plt.barh(-i, 169, 0.6, color = "#bbbbbb", edgecolor = "black")
+            plt.barh(-i, 0.2, 0.8, left = half-0.1, color = "black")
+            plt.barh(-i, seat_sums, 0.6, color = "#bbbbbb", edgecolor = "black")
 
             left = 0
             for party in item:
@@ -945,8 +975,11 @@ def parse_args():
     parser.add_argument("-P", "--plot",
                         help = "Create the plots",
                         action = "store_true")
-    parser.add_argument("-S", "--showplot",
-                        help = "Show the plots",
+    parser.add_argument("-S", "--saveplot",
+                        help = "Save plots instead of showing",
+                        action = "store_true")
+    parser.add_argument("-r", "--results",
+                        help = "Show the results when done",
                         action = "store_true")
     parser.add_argument("-t", "--title",
                         help = "Title for the plots (default is no title)",
@@ -986,8 +1019,10 @@ def main():
                     continue
                 norway.add_votes(name, party, votes)
 
-    norway.calculate(dist_method = args.method)
-    norway.show_results()
+    norway.calculate(dist_method = args.method, num_seats = 169)
+    
+    if args.results:
+        norway.show_results()
 
     if args.displaydistricts or args.individuals:
         norway.show_individual_districts()
@@ -996,7 +1031,7 @@ def main():
         norway.analyze()
 
     if args.plot:
-        norway.plot_results()
+        norway.plot_results(parliament_rows = 4)
 
 
 if __name__ == "__main__":

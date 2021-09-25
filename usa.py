@@ -1,7 +1,3 @@
-import argparse
-import os
-import time
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -28,9 +24,24 @@ class USA(Norway):
             populations[state] = pop
             dist_areas[state] = area
 
+        candidates_left_to_right = {"Joe Biden": "#0062ff",
+                                    "Donald Trump": "#d10000",
+                                    "Jo Jorgensen": "#ffdf00"}
+
+        locations_raw = pd.read_csv("./usa/states_locations.csv")
+        locations = {}
+
+        for row in locations_raw.iterrows():
+            state = row[1]["name"]
+            x = row[1]["longitude"]
+            y = row[1]["latitude"]
+            locations[state] = [x, y]
+
         self.populations = populations
         self.dist_areas = dist_areas
         self.num_leveling_seats = num_leveling_seats
+        self.candidates_left_to_right = candidates_left_to_right
+        self.locations = locations
 
         self.total_votes = self.results["total_votes"].sum()
 
@@ -297,6 +308,18 @@ class USA(Norway):
         self._message_end()
         self._make_distribution_table()
 
+    def plot_map(self):
+        self.party_names = {}
+        for name in self.candidate_names:
+            self.party_names[name] = name
+        self.district_distributions = self.state_distributions
+        self.parties_left_to_right = self.candidates_left_to_right
+        super().plot_map(save = False)
+
+    def plot_parliament(self, save = True, num_seats = 538, num_rows = 1, figsize = None):
+        self.parties_left_to_right = self.candidates_left_to_right
+        return super().plot_parliament(save = save, num_seats = num_seats, num_rows = num_rows, figsize = figsize)
+
 
 def main():
     args = parse_args()
@@ -307,6 +330,9 @@ def main():
     if args.displaydistricts or args.individuals:
         usa.show_individual_districts()
 
+    usa.plot_parliament()
+    usa.plot_map()
+    plt.show()
 
 if __name__ == "__main__":
     main()
