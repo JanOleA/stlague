@@ -567,8 +567,9 @@ class Norway:
 
     def plot_parliament(self, save = True, num_seats = 169, num_rows = 6, figsize = None):
         if figsize is None:
-            figsize = (12,2.3)
-        plt.figure(figsize = figsize)
+            figsize = (9.8,2.3)
+        fig = plt.figure(figsize = figsize)
+        fig.patch.set_facecolor("#d1d1d1")
 
         num_columns = num_seats // num_rows
         half_col = num_columns // 2
@@ -620,7 +621,7 @@ class Norway:
 
                     
 
-        leg = plt.legend(prop = self._legend_font)
+        plt.legend(prop = self._legend_font, facecolor = "#b1b1b1")
         if save: plt.savefig(os.path.join(self.args.folder, "tinget.png"))
 
     def plot_num_seats(self, save = True):
