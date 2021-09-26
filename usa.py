@@ -1,9 +1,10 @@
+import matplotlib.font_manager as font_manager
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 from district import District
-from election import parse_args, Norway
+from election import Norway, parse_args
 
 
 class USA(Norway):
@@ -308,6 +309,9 @@ class USA(Norway):
         self._message_end()
         self._make_distribution_table()
 
+        self._legend_font = font_manager.FontProperties(family = "Noto Sans",
+                                                        size = 9)
+
     def plot_map(self):
         self.party_names = {}
         for name in self.candidate_names:
@@ -316,7 +320,7 @@ class USA(Norway):
         self.parties_left_to_right = self.candidates_left_to_right
         super().plot_map(save = False)
 
-    def plot_parliament(self, save = True, num_seats = 538, num_rows = 1, figsize = None):
+    def plot_parliament(self, save = True, num_seats = 538, num_rows = 2, figsize = None):
         self.parties_left_to_right = self.candidates_left_to_right
         return super().plot_parliament(save = save, num_seats = num_seats, num_rows = num_rows, figsize = figsize)
 
