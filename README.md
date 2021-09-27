@@ -5,26 +5,33 @@ Scroll ned for å se de faktiske resultatene + en kort intro til hvordan program
 
 ## Forskjellige metoder:
 - **Sperregrense 4%**
-    - [Modifisert Sainte-Laguë (metoden vi faktisk bruker)](figs/sperregrense4/modf/README.md)
+    - [Modifisert Sainte-Laguë (metoden i bruk)](figs/sperregrense4/modf/README.md)
     - [Umodifisert Sainte-Laguë](figs/sperregrense4/unmodf/README.md)
+    - [D'Hondts metode](figs/sperregrense4/dhondt/README.md)
 - **Ny fylkesinndeling**
     - [Modifisert Sainte-Laguë](figs/nyefylker/modf/README.md)
     - [Umodifisert Sainte-Laguë](figs/nyefylker/unmodf/README.md)
+    - [D'Hondts metode](figs/nyefylker/dhondt/README.md)
 - **Sperregrense 3%**
     - [Modifisert Sainte-Laguë](figs/sperregrense3/modf/README.md)
     - [Umodifisert Sainte-Laguë](figs/sperregrense3/unmodf/README.md)
+    - [D'Hondts metode](figs/sperregrense3/dhondt/README.md)
 - **Sperregrense 5%**
     - [Modifisert Sainte-Laguë](figs/sperregrense5/modf/README.md)
     - [Umodifisert Sainte-Laguë](figs/sperregrense5/unmodf/README.md)
+    - [D'Hondts metode](figs/sperregrense5/dhondt/README.md)
 - **Ingen sperregrense**
     - [Modifisert Sainte-Laguë](figs/sperregrense0/modf/README.md)
     - [Umodifisert Sainte-Laguë](figs/sperregrense0/unmodf/README.md)
+    - [D'Hondts metode](figs/sperregrense0/dhondt/README.md)
 - **Ingen utjevningsmandater**
     - [Modifisert Sainte-Laguë](figs/ingenutjvn/modf/README.md)
     - [Umodifisert Sainte-Laguë](figs/ingenutjvn/unmodf/README.md)
+    - [D'Hondts metode](figs/ingenutjvn/dhondt/README.md)
 - **Absolutt grense på 4%**
     - [Modifisert Sainte-Laguë](figs/abs4/modf/README.md)
     - [Umodifisert Sainte-Laguë](figs/abs4/unmodf/README.md)
+    - [D'Hondts metode](figs/abs4/dhondt/README.md)
 - **Endring i arealfaktoren for mandatfordeling på fylkene**
     - [Ingen arealfaktor](figs/areal/faktor0/README.md)
     - [Arealfaktor på 1](figs/areal/faktor1/README.md)
@@ -33,6 +40,7 @@ Scroll ned for å se de faktiske resultatene + en kort intro til hvordan program
     - [Ett valgdistrikt, 169 mandater](figs/ett_distrikt/README.md)
 - **Hjemmesitterne**
     - [Hjemmesitterne har et eget parti](figs/hjemmesitterne/hjem/README.md)
+    - [Hjemmesitterne har et eget parti med D'Hondts metode](figs/hjemmesitterne/dhondt/README.md)
     - [Hjemmesitterne har et eget parti og sperregrensen er 3%](figs/hjemmesitterne/hjemsg3/README.md)
     - [Hjemmesitterne + blanke stemmer har et parti sammen](figs/hjemmesitterne/hjemblank/README.md)
 - **Amerikanske metoder (First Past The Post)**

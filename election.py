@@ -105,7 +105,7 @@ class Norway:
         # define parties on a left to right scale, and give them a color
         parties_left_to_right = {"RØDT": "#800000",
                                  "SV":   "#ff7dfb",
-                                 "A":    "#ff0000",
+                                 "A":    "#ff5454",
                                  "SP":   "#93c77d",
                                  "MDG":  "#129600",
                                  "HJEM": "#ededed", # Hjemmesitterne
@@ -113,11 +113,11 @@ class Norway:
                                  "PP":   "#386782",
                                  "PS":   "#b3321c",
                                  "PF":   "#828282",
-                                 "V":    "#00ffe1",
+                                 "V":    "#00dba8",
                                  "KRF":  "#d9ff00",
                                  "INP":  "#ffb300",
-                                 "H":    "#0084ff",
-                                 "FRP":  "#0038b0",
+                                 "H":    "#2b99ff",
+                                 "FRP":  "#2854b0",
                                  "DEMN": "#7211b0",
                                  }
 
@@ -166,9 +166,12 @@ class Norway:
     def _calculate_seat_distribution(self, num_seats = 169):
         if self.args.usadist:
             seat_distribution = District(num_seats - 2*len(self.populations.items()),
-                                         method = "hunthill", initial_seats = 1)
+                                         method = "hunthill", initial_seats = 1, hh_threshold = 0)
         else:
-            seat_distribution = District(num_seats, initial_divisor = 1)
+            if self.args.method == "dhondt":
+                seat_distribution = District(num_seats, method = "dhondt", initial_divisor = 1)
+            else:
+                seat_distribution = District(num_seats, initial_divisor = 1)
 
         for district_name, population in self.populations.items():
             area = self.dist_areas[district_name]
@@ -323,7 +326,11 @@ class Norway:
                 leveling_seats -= seats
 
         # initial distribution before removing overrepresented parties
-        leveling_district = District(leveling_seats)
+        if self.args.method == "dhondt":
+            leveling_district = District(leveling_seats, method = "dhondt")
+        else:
+            leveling_district = District(leveling_seats)
+
         for party, votes in parties_competing_votes.items():
             leveling_district.add_votes(party, votes)
 
@@ -388,7 +395,10 @@ class Norway:
                     direct_seats_in_district = district_distributions[district_name][party]
                 else:
                     direct_seats_in_district = 0
-                divisor = direct_seats_in_district*2 + 1
+                if self.args.method == "dhondt":
+                    divisor = direct_seats_in_district + 1
+                else:
+                    divisor = direct_seats_in_district*2 + 1
                 rest_quotient = (party_district_votes/divisor)/district_divisor
                 leveling_table.append([rest_quotient, district_name, party])
         leveling_table = pd.DataFrame(leveling_table)
@@ -458,7 +468,7 @@ class Norway:
         self._start_time = time.perf_counter()
         self._message = message
         self._active_message = True
-        print(f"{message:60s}  [kjører]  ", end = "\r")
+        print(f"{message:60s}  [ wait ]  ", end = "\r")
 
     def _message_end(self):
         print(f"{self._message:60s}  [  ok  ]  ({time.perf_counter() - self._start_time:>7.5f}s)  ")
@@ -573,7 +583,7 @@ class Norway:
         print(f"Grense for utjevningsmandater = {self.args.levelinglimit}%       Første delingstall: {self.args.initialdivisor}")
         print(self.distribution_table)
 
-    def plot_results(self, parliament_rows = 6):
+    def plot_results(self, parliament_rows = 4):
         if self.args.title == "":
             self.args.title = f"Sperregrense: {self.args.levelinglimit}%     Første delingstall: {self.args.initialdivisor}"
         if not os.path.isdir(self.args.folder):
@@ -589,9 +599,9 @@ class Norway:
         self._message_end()
         if not self.args.saveplot: plt.show()
 
-    def plot_parliament(self, save = True, num_seats = 169, num_rows = 6, figsize = None):
+    def plot_parliament(self, save = True, num_seats = 169, num_rows = 4, figsize = None):
         if figsize is None:
-            figsize = (13,3)
+            figsize = (15,3)
         fig, ax = plt.subplots(1, 1, figsize = figsize)
         plt.title(self.args.title, fontfamily = "Noto Sans")
         plt.axis("off")
@@ -600,30 +610,28 @@ class Norway:
 
         num_columns = num_seats // num_rows
         half_col = num_columns // 2
-        half_seats = num_seats // 2
-        middle_row = num_rows // 2 - 0.5
+        middle_row = num_rows / 2 - 0.5
 
         if num_seats % 2 == 1:
-            centre_seat = True         
+            centre_seat = True
         else:
-            centre_seat = False        
+            centre_seat = False
         
+        bg = patches.Rectangle((-0.8, -0.8), num_columns + 1.6, num_rows + 0.6, color = "#eeeeee", ec = "#a1a1a1")
+        ax.add_patch(bg)
+
         plt.ylim((-1, num_rows))
         plt.xlim((-3, num_columns + 6))
         i = 0
         while i < num_seats:
             for party, color in self.parties_left_to_right.items():
-                party_circles = []
                 if not party in self.distribution_with_leveling:
                     continue
+                party_circles = []
                 seats = self.distribution_with_leveling[party][0]
                 for seat in range(seats):
-                    if i > half_seats and centre_seat:
-                        col = i//num_rows
-                        row = i%num_rows
-                    else:
-                        col = i//num_rows
-                        row = i%num_rows
+                    col = i//num_rows
+                    row = i%num_rows
 
                     if col == half_col and centre_seat:
                         i += num_rows
@@ -634,30 +642,25 @@ class Norway:
                     
                     if col % 2 == 0:
                         row = num_rows - 1 - row
-                        down = True
-                    else:
-                        down = False
 
                     if seat == 0:
-                        start = ((col, row), down)
                         label = party
                     else:
                         label = None
 
-                    if seat == seats - 1:
-                        end = ((col, row), down)
-
-                    hexagon = patches.RegularPolygon((col, row), 6, 0.4, fc = color, ec = self._avg_hex(color, "#000000"), label = label)
+                    hexagon = patches.RegularPolygon((col, row), 6, 0.45,
+                                                     fc = color, ec = self._avg_hex(color, "#000000", weight = 2),
+                                                     label = label, orientation = np.pi/2)
                     party_circles.append(hexagon)
 
                 for circle in party_circles:
-                    ax.add_patch(circle)   
-
+                    ax.add_patch(circle)
+        
         plt.legend(prop = self._legend_font)
         if save: plt.savefig(os.path.join(self.args.folder, "tinget.png"))
 
     def plot_num_seats(self, save = True):
-        plt.figure(figsize = (5, 0.45*len(self.distribution_with_leveling)))
+        plt.figure(figsize = (5, 0.45*max(9, len(self.distribution_with_leveling))))
         plt.title(self.args.title, fontfamily = "Noto Sans")
         plt.axis("off")
         plt.tight_layout()
@@ -697,7 +700,7 @@ class Norway:
         if save: plt.savefig(os.path.join(self.args.folder, "seter.png"))
 
     def plot_map(self, save = True):
-        fig, ax = plt.subplots(1, 1, figsize = (14,9))
+        fig, ax = plt.subplots(1, 1, figsize = (14,12))
         plt.title(self.args.title, fontfamily = "Noto Sans")
         plt.tight_layout()
 
@@ -768,12 +771,12 @@ class Norway:
                     if district_name in self.leveling_awards:
                         if self.leveling_awards[district_name] == party and not leveling_awarded:
                             leveling_awarded = True
-                            leveling_hex = patches.RegularPolygon(pos_now, 6, hex_radius, color = "gold", ec = "black")
+                            leveling_hex = patches.RegularPolygon(pos_now, 6, hex_radius, color = "gold", ec = "black", zorder = 10)
 
                     if leveling_hex is None:
                         hexagon = patches.RegularPolygon(pos_now, 6, hex_radius, color = color, ec = half_color, label = label)
                     else:
-                        hexagon = patches.RegularPolygon(pos_now, 6, hex_radius*0.7, color = color, ec = half_color, label = label)
+                        hexagon = patches.RegularPolygon(pos_now, 6, hex_radius*0.7, color = color, ec = half_color, label = label, zorder = 11)
                         ax.add_patch(leveling_hex)                    
                     ax.add_patch(hexagon)
 
@@ -784,6 +787,7 @@ class Norway:
             plt.text(location[0] - textlen, top_y + hex_radius*1.2, district_name, fontfamily = "Cascadia Code")
 
         plt.axis("equal")
+        plt.xlim(-6, 7)
         plt.axis("off")
         plt.legend(loc = "upper left", prop = self._legend_font)
         if save: plt.savefig(os.path.join(self.args.folder, "kart.png"))
@@ -923,7 +927,7 @@ def parse_args():
                         type = float)
     parser.add_argument("-m", "--method",
                         help = "Method to use when calculating results for each district",
-                        choices = ["stlague", "fptp", "hunthill"],
+                        choices = ["stlague", "fptp", "hunthill", "dhondt"],
                         default = "stlague",
                         type = str)
     parser.add_argument("-n", "--newcounties",
