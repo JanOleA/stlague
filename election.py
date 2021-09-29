@@ -801,12 +801,14 @@ class Norway:
         seat_sums = seat_sums["Mandater"]
         half = seat_sums//2 + 1
 
-        plt.ylim(-8, 1)
+        plt.ylim(-10, 1)
         plt.xlim(-1, seat_sums + 1)
         
         blocks = {"Jonas' drøm": ("A", "SP", "SV"),
+                  "Vedums drøm": ("A", "SP"),
                   "Veldigrød+littgrønn": ("A", "SV", "RØDT", "MDG"),
                   "'Hele venstresiden'": ("A", "SP", "SV", "RØDT", "MDG"),
+                  "Sentrum-Venstre": ("A", "SP", "V", "KRF"),
                   "Ernas drøm": ("H", "FRP", "V", "KRF"),
                   "De blågrønne": ("H", "SP", "FRP", "V", "KRF"),
                   "Sentrum-Høyre": ("H", "V", "KRF"),
